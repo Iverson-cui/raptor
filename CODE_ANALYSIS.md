@@ -54,10 +54,11 @@ The core logic resides in the `raptor/` directory. The system is designed with a
 *   **`raptor/tree_retriever.py`**
     *   **Role**: The primary retriever for the RAPTOR tree.
     *   **Functionality**:
-        *   `retrieve()`: Supports two modes:
+        *   `retrieve()`: Supports two modes: `retrieve()`函数会call下面的2个函数之一
             1.  **Collapsed Tree**: Flattens the tree and searches all nodes (roots, intermediates, leaves) simultaneously using embedding similarity.
             2.  **Tree Traversal**: (Implemented but `collapse_tree=True` seems to be the default/preferred) Navigates the tree layer by layer.
         *   Selects the top-k most relevant nodes/context for a given query.
+        *   `retrieve_information()`和`retrieve_information_collapse_tree()`是最关键的函数，分别实现了hierarchical的查找，一层一层往下走和flatten tree的查找。
 
 *   **`raptor/FaissRetriever.py`**
     *   **Role**: A flat retrieval alternative.

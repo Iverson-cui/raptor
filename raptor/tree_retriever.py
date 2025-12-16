@@ -137,6 +137,7 @@ class TreeRetriever(BaseRetriever):
         self.embedding_model = config.embedding_model
         self.context_embedding_model = config.context_embedding_model
 
+        # dictionary of keys: node index, values: layer number of that node
         self.tree_node_index_to_layer = reverse_mapping(self.tree.layer_to_nodes)
 
         logging.info(
@@ -171,6 +172,7 @@ class TreeRetriever(BaseRetriever):
 
         selected_nodes = []
 
+        # search through all nodes in the tree
         node_list = get_node_list(self.tree.all_nodes)
 
         embeddings = get_embeddings(node_list, self.context_embedding_model)
@@ -180,11 +182,13 @@ class TreeRetriever(BaseRetriever):
         indices = indices_of_nearest_neighbors_from_distances(distances)
 
         total_tokens = 0
+        # choose top-k if total tokens doesn't exceed mat_tokens
         for idx in indices[:top_k]:
 
             node = node_list[idx]
             node_tokens = len(self.tokenizer.encode(node.text))
 
+            # if exceeded, break
             if total_tokens + node_tokens > max_tokens:
                 break
 
@@ -213,6 +217,7 @@ class TreeRetriever(BaseRetriever):
 
         selected_nodes = []
 
+        # at first current_nodes are the nodes at the start layer
         node_list = current_nodes
 
         for layer in range(num_layers):
@@ -237,13 +242,17 @@ class TreeRetriever(BaseRetriever):
 
             if layer != num_layers - 1:
 
+                # get the children of the best nodes we selected above
                 child_nodes = []
 
                 for index in best_indices:
                     child_nodes.extend(node_list[index].children)
 
                 # take the unique values
+                # multiple parent nodes can share the same child node
+                # so this step is used to remove duplicates
                 child_nodes = list(dict.fromkeys(child_nodes))
+                # update the node_list to be the children of the best nodes
                 node_list = [self.tree.all_nodes[i] for i in child_nodes]
 
         context = get_text(selected_nodes)

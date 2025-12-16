@@ -172,6 +172,7 @@ class TreeBuilder:
         if children_indices is None:
             children_indices = set()
 
+        # dictionary whose keys are model names and values are list[float]
         embeddings = {
             model_name: model.create_embedding(text)
             for model_name, model in self.embedding_models.items()
@@ -223,6 +224,7 @@ class TreeBuilder:
         )
         indices = indices_of_nearest_neighbors_from_distances(distances)
 
+        # two ways to select relevant nodes, top-K mode or threshold mode
         if self.selection_mode == "threshold":
             best_indices = [
                 index for index in indices if distances[index] > self.threshold
