@@ -259,14 +259,10 @@ class TreeBuilder:
 
     def build_from_text(self, text: str, use_multithreading: bool = True) -> Tree:
         """Builds a golden tree from the input text, optionally using multithreading.
-
-        Args:
-            text (str): The input text.
-            use_multithreading (bool, optional): Whether to use multithreading when creating leaf nodes.
-                Default: True.
-
-        Returns:
-            Tree: The golden tree structure.
+        
+        Step 2 (Leaf Node Creation):
+        Before building the hierarchy, the text is split into manageable chunks.
+        These chunks form the "Leaf Nodes" (Layer 0) of the tree.
         """
         chunks = split_text(text, self.tokenizer, self.max_tokens)
 
@@ -288,6 +284,9 @@ class TreeBuilder:
 
         all_nodes = copy.deepcopy(leaf_nodes)
 
+        # Step 3 (Recursive Construction):
+        # Once leaf nodes are ready, construct_tree is called to build higher layers
+        # by clustering and summarizing the nodes from the layer below.
         root_nodes = self.construct_tree(all_nodes, all_nodes, layer_to_nodes)
 
         tree = Tree(all_nodes, root_nodes, leaf_nodes, self.num_layers, layer_to_nodes)

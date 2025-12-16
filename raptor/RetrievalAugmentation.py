@@ -204,9 +204,10 @@ class RetrievalAugmentation:
     def add_documents(self, docs):
         """
         Adds documents to the tree and creates a TreeRetriever instance.
-
-        Args:
-            docs (str): The input text to add to the tree.
+        
+        Step 1 (Tree Building Entry): This is the high-level entry point.
+        It delegates the heavy lifting of building the hierarchical tree 
+        from the raw text to the configured TreeBuilder (e.g., ClusterTreeBuilder).
         """
         if self.tree is not None:
             user_input = input(
@@ -216,6 +217,9 @@ class RetrievalAugmentation:
                 # self.add_to_existing(docs)
                 return
 
+        # The build_from_text method orchestrates the entire tree construction process:
+        # 1. Splitting text into chunks (Leaf Nodes)
+        # 2. Recursively clustering and summarizing (Higher-level Nodes)
         self.tree = self.tree_builder.build_from_text(text=docs)
         self.retriever = TreeRetriever(self.tree_retriever_config, self.tree)
 

@@ -139,6 +139,17 @@ class RAPTOR_Clustering(ClusteringAlgorithm):
         threshold: float = 0.1,
         verbose: bool = False,
     ) -> List[List[Node]]:
+        """
+        Step 5 (Clustering Algorithm):
+        Groups nodes based on their embeddings.
+        
+        Mechanism:
+        1. Embeddings: Extract embeddings from nodes.
+        2. Dimensionality Reduction: Use UMAP to reduce embedding dimensions (global and local).
+        3. Clustering: Use Gaussian Mixture Models (GMM) to find soft clusters.
+        4. Recursive Check: If a resulting cluster is too large (too much text), 
+           recursively re-cluster it to ensure summaries stay focused.
+        """
         # Get the embeddings from the nodes
         embeddings = np.array([node.embeddings[embedding_model_name] for node in nodes])
 

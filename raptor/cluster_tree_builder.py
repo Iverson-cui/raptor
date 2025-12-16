@@ -59,6 +59,17 @@ class ClusterTreeBuilder(TreeBuilder):
         layer_to_nodes: Dict[int, List[Node]],
         use_multithreading: bool = False,
     ) -> Dict[int, Node]:
+        """
+        Step 4 (Layer-by-Layer Construction):
+        This method iterates to build the tree from the bottom up.
+        
+        Process for each layer:
+        1. Clustering: Group 'current_level_nodes' based on semantic similarity (embeddings).
+        2. Summarization: For each cluster, generate a summary text.
+        3. Node Creation: Create a new parent node containing the summary.
+        4. Linkage: The new node becomes the parent of the clustered nodes.
+        5. Repeat: The new nodes become 'current_level_nodes' for the next layer.
+        """
         logging.info("Using Cluster TreeBuilder")
 
         next_node_index = len(all_tree_nodes)
@@ -99,6 +110,7 @@ class ClusterTreeBuilder(TreeBuilder):
                 )
                 break
 
+            # Clustering step: Groups semantically similar nodes together
             clusters = self.clustering_algorithm.perform_clustering(
                 node_list_current_layer,
                 self.cluster_embedding_model,
