@@ -23,7 +23,7 @@ The core logic resides in the `raptor/` directory. The system is designed with a
         *   `Tree`: Represents the entire hierarchy, tracking all nodes, root nodes, leaf nodes, and layer mappings.
 
 *   **`raptor/tree_builder.py`**
-    *   **Role**: Base class for tree construction.
+    *   **Role**: Base class for tree construction. 里面包含里一个base class用来实现tree的construction。
     *   **Functionality**:
         *   Splits input text into chunks (leaf nodes).
         *   Manages tokenizer and model configurations.
@@ -31,7 +31,7 @@ The core logic resides in the `raptor/` directory. The system is designed with a
         *   Provides helper methods like `create_node` and `summarize`.
 
 *   **`raptor/cluster_tree_builder.py`**
-    *   **Role**: The concrete implementation of RAPTOR's tree building logic.
+    *   **Role**: The concrete implementation of RAPTOR's tree building logic. 这个文件里包含了一个class叫`ClusterTreeBuilder`，继承自`TreeBuilder`，实现了RAPTOR的核心逻辑，包括tree是如何搭建的。`cluster_tree_builder.py`和`tree_builder.py`2个文件互相配合，传递参数。
     *   **Functionality**:
         *   Inherits from `TreeBuilder`.
         *   Recursively builds the tree from the bottom up.

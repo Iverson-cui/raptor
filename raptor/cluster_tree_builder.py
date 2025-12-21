@@ -62,23 +62,39 @@ class ClusterTreeBuilder(TreeBuilder):
         """
         Step 4 (Layer-by-Layer Construction):
         This method iterates to build the tree from the bottom up.
-        
+
         Process for each layer:
         1. Clustering: Group 'current_level_nodes' based on semantic similarity (embeddings).
         2. Summarization: For each cluster, generate a summary text.
         3. Node Creation: Create a new parent node containing the summary.
         4. Linkage: The new node becomes the parent of the clustered nodes.
         5. Repeat: The new nodes become 'current_level_nodes' for the next layer.
+
+        This function returns the root nodes of the constructed tree, while leaf nodes are modified in-place.
+
+        When called initially, current_level_nodes and all_tree_nodes contain the same memory. Later all_tree_nodes is updated in-place and current_level_nodes rebinds to another local variables.
         """
         logging.info("Using Cluster TreeBuilder")
 
+        # next_node_index helps assign unique indices to new parent nodes no matter which layer the node is in
         next_node_index = len(all_tree_nodes)
 
         def process_cluster(
             cluster, new_level_nodes, next_node_index, summarization_length, lock
         ):
+            """
+            Docstring for process_cluster
+
+            :param cluster: List[Node] that we want to summarize into a parent node
+            :param new_level_nodes: a shared dictionary to store newly created parent nodes
+            :param next_node_index: The index to assign to the newly created parent node
+            :param summarization_length: maximum tokens for summarization
+            :param lock: Ensures thread-safe access to new_level_nodes when multithreading is enabled
+            """
+            # concatenate all texts from the cluster into node_texts for summarization
             node_texts = get_text(cluster)
 
+            # defaults to GPT3Turbo to summarize
             summarized_text = self.summarize(
                 context=node_texts,
                 max_tokens=summarization_length,
@@ -88,6 +104,7 @@ class ClusterTreeBuilder(TreeBuilder):
                 f"Node Texts Length: {len(self.tokenizer.encode(node_texts))}, Summarized Text Length: {len(self.tokenizer.encode(summarized_text))}"
             )
 
+            # create new parent node with child nodes the cluster
             __, new_parent_node = self.create_node(
                 next_node_index, summarized_text, {node.index for node in cluster}
             )
@@ -97,12 +114,14 @@ class ClusterTreeBuilder(TreeBuilder):
 
         for layer in range(self.num_layers):
 
+            # every layer will have its own set of new level nodes
             new_level_nodes = {}
 
             logging.info(f"Constructing Layer {layer}")
 
             node_list_current_layer = get_node_list(current_level_nodes)
 
+            # If we cannot reduce further, early terminate the tree construction
             if len(node_list_current_layer) <= self.reduction_dimension + 1:
                 self.num_layers = layer
                 logging.info(
@@ -138,6 +157,7 @@ class ClusterTreeBuilder(TreeBuilder):
                     executor.shutdown(wait=True)
 
             else:
+                # perform summarization and parent node creation for every cluster
                 for cluster in clusters:
                     process_cluster(
                         cluster,
@@ -148,10 +168,13 @@ class ClusterTreeBuilder(TreeBuilder):
                     )
                     next_node_index += 1
 
+            # update layer_to_nodes to include new level nodes
             layer_to_nodes[layer + 1] = list(new_level_nodes.values())
             current_level_nodes = new_level_nodes
+            # update all_tree_nodes to include new level nodes
             all_tree_nodes.update(new_level_nodes)
 
+            # TODO: Is this necessary? Since we are already updating all_tree_nodes above, tree will be constructed outside of this function.
             tree = Tree(
                 all_tree_nodes,
                 layer_to_nodes[layer + 1],

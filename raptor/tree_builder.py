@@ -289,8 +289,10 @@ class TreeBuilder:
         # Step 3 (Recursive Construction):
         # Once leaf nodes are ready, construct_tree is called to build higher layers
         # by clustering and summarizing the nodes from the layer below.
+        # before calling, all_nodes contains all of leaf nodes flattened in a single layer.
         root_nodes = self.construct_tree(all_nodes, all_nodes, layer_to_nodes)
 
+        # all_nodes is modified in construct_tree function to include the tree. PASS BY REFERENCE!!
         tree = Tree(all_nodes, root_nodes, leaf_nodes, self.num_layers, layer_to_nodes)
 
         return tree
