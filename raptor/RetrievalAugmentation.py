@@ -3,25 +3,30 @@ import pickle
 
 from .cluster_tree_builder import ClusterTreeBuilder, ClusterTreeConfig
 from .EmbeddingModels import BaseEmbeddingModel
-from .QAModels import BaseQAModel, GPT3TurboQAModel
+from .QAModels import BaseQAModel, GPT3TurboQAModel, UnifiedQAModel
 from .SummarizationModels import BaseSummarizationModel
 from .tree_builder import TreeBuilder, TreeBuilderConfig
 from .tree_retriever import TreeRetriever, TreeRetrieverConfig
 from .tree_structures import Node, Tree
 
 # Define a dictionary to map supported tree builders to their respective configs
+# key is string, value is a tuple of CLASS (TreeBuilderClass, TreeBuilderConfigClass)
 supported_tree_builders = {"cluster": (ClusterTreeBuilder, ClusterTreeConfig)}
 
 logging.basicConfig(format="%(asctime)s - %(message)s", level=logging.INFO)
 
 
 class RetrievalAugmentationConfig:
+
     def __init__(
         self,
         tree_builder_config=None,
         tree_retriever_config=None,  # Change from default instantiation
+        # question answering model
         qa_model=None,
+        # global embedding model
         embedding_model=None,
+        # global summarization model
         summarization_model=None,
         tree_builder_type="cluster",
         # New parameters for TreeRetrieverConfig and TreeBuilderConfig
@@ -30,7 +35,9 @@ class RetrievalAugmentationConfig:
         tr_threshold=0.5,
         tr_top_k=5,
         tr_selection_mode="top_k",
-        tr_context_embedding_model="OpenAI",
+        # query embedding model
+        tr_context_embedding_model="SBERT",
+        # tree retriever local embedding model
         tr_embedding_model=None,
         tr_num_layers=None,
         tr_start_layer=None,
@@ -42,9 +49,12 @@ class RetrievalAugmentationConfig:
         tb_top_k=5,
         tb_selection_mode="top_k",
         tb_summarization_length=100,
+        # tree builder local summarization model
         tb_summarization_model=None,
+        # tree builder local embedding models
         tb_embedding_models=None,
-        tb_cluster_embedding_model="OpenAI",
+        # which embedding to use for clustering in tree builder
+        tb_cluster_embedding_model="SBERT",
     ):
         # Validate tree_builder_type
         if tree_builder_type not in supported_tree_builders:
@@ -52,26 +62,39 @@ class RetrievalAugmentationConfig:
                 f"tree_builder_type must be one of {list(supported_tree_builders.keys())}"
             )
 
+        print("Start initializing RetrievalAugmentation...")
         # Validate qa_model
+        print("Validating QA model...")
+        # if qa_model is None, skip this step and default to UnifiedQAModel later
         if qa_model is not None and not isinstance(qa_model, BaseQAModel):
             raise ValueError("qa_model must be an instance of BaseQAModel")
+        elif qa_model is not None:
+            print(f"QA model set to {qa_model}")
+        else:
+            print("QA model not provided in config")
 
+        print("Validating embedding model...")
         if embedding_model is not None and not isinstance(
             embedding_model, BaseEmbeddingModel
         ):
             raise ValueError(
                 "embedding_model must be an instance of BaseEmbeddingModel"
             )
+        # embedding_model is the universal way to set embedding model for both tree builder and retriever
+        # if embedding_model is None, 5 model arguments are None and default values are set later
         elif embedding_model is not None:
             if tb_embedding_models is not None:
                 raise ValueError(
                     "Only one of 'tb_embedding_models' or 'embedding_model' should be provided, not both."
                 )
+            # if embedding_model is set, 4 models below is set to align with it
             tb_embedding_models = {"EMB": embedding_model}
             tr_embedding_model = embedding_model
             tb_cluster_embedding_model = "EMB"
             tr_context_embedding_model = "EMB"
-
+        else:
+            print("Embedding model not provided in config")
+        print("Validating summarization model...")
         if summarization_model is not None and not isinstance(
             summarization_model, BaseSummarizationModel
         ):
@@ -79,17 +102,24 @@ class RetrievalAugmentationConfig:
                 "summarization_model must be an instance of BaseSummarizationModel"
             )
 
+        # The same logic applies to summarization_model, except that summarization_model only has one child
         elif summarization_model is not None:
             if tb_summarization_model is not None:
                 raise ValueError(
                     "Only one of 'tb_summarization_model' or 'summarization_model' should be provided, not both."
                 )
             tb_summarization_model = summarization_model
+        else:
+            print("Summarization model not provided in config")
 
         # Set TreeBuilderConfig
+        # supported_tree_builders is a dict
         tree_builder_class, tree_builder_config_class = supported_tree_builders[
             tree_builder_type
         ]
+        # based on the ways we choose to build the tree, we choose the corresponding TreeBuilderConfig class
+        # the same arguments are passed to different TreeBuilderConfig classes
+        print("Setting TreeBuilderConfig...")
         if tree_builder_config is None:
             tree_builder_config = tree_builder_config_class(
                 tokenizer=tb_tokenizer,
@@ -99,6 +129,7 @@ class RetrievalAugmentationConfig:
                 top_k=tb_top_k,
                 selection_mode=tb_selection_mode,
                 summarization_length=tb_summarization_length,
+                # treebuilder use 3 embedding models
                 summarization_model=tb_summarization_model,
                 embedding_models=tb_embedding_models,
                 cluster_embedding_model=tb_cluster_embedding_model,
@@ -110,12 +141,14 @@ class RetrievalAugmentationConfig:
             )
 
         # Set TreeRetrieverConfig
+        print("Setting TreeRetrieverConfig...")
         if tree_retriever_config is None:
             tree_retriever_config = TreeRetrieverConfig(
                 tokenizer=tr_tokenizer,
                 threshold=tr_threshold,
                 top_k=tr_top_k,
                 selection_mode=tr_selection_mode,
+                # tree retriever use 2 embedding models
                 context_embedding_model=tr_context_embedding_model,
                 embedding_model=tr_embedding_model,
                 num_layers=tr_num_layers,
@@ -127,9 +160,10 @@ class RetrievalAugmentationConfig:
             )
 
         # Assign the created configurations to the instance
+        print("2 config done")
         self.tree_builder_config = tree_builder_config
         self.tree_retriever_config = tree_retriever_config
-        self.qa_model = qa_model or GPT3TurboQAModel()
+        self.qa_model = qa_model or UnifiedQAModel()
         self.tree_builder_type = tree_builder_type
 
     def log_config(self):
@@ -163,6 +197,7 @@ class RetrievalAugmentation:
             config (RetrievalAugmentationConfig): The configuration for the RetrievalAugmentation instance.
             tree: The tree instance or the path to a pickled tree file.
         """
+
         if config is None:
             config = RetrievalAugmentationConfig()
         if not isinstance(config, RetrievalAugmentationConfig):
@@ -271,8 +306,8 @@ class RetrievalAugmentation:
         start_layer: int = None,
         num_layers: int = None,
         max_tokens: int = 3500,
-        collapse_tree: bool = True,
-        return_layer_information: bool = False,
+        collapse_tree: bool = False,
+        return_layer_information: bool = True,
     ):
         """
         Retrieves information and answers a question using the TreeRetriever instance.
@@ -294,7 +329,7 @@ class RetrievalAugmentation:
         context, layer_information = self.retrieve(
             question, start_layer, num_layers, top_k, max_tokens, collapse_tree, True
         )
-
+        print("Retrieved Context: ", context)
         answer = self.qa_model.answer_question(context, question)
 
         if return_layer_information:

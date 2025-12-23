@@ -61,7 +61,7 @@ The core logic resides in the `raptor/` directory. The system is designed with a
         *   `retrieve_information()`和`retrieve_information_collapse_tree()`是最关键的函数，分别实现了hierarchical的查找，一层一层往下走和flatten tree的查找。
 
 *   **`raptor/FaissRetriever.py`**
-    *   **Role**: A flat retrieval alternative.
+    *   **Role**: A flat retrieval alternative. 在目前的demo里这个库并没有被使用。
     *   **Functionality**:
         *   Uses **FAISS** (Facebook AI Similarity Search) for efficient vector search.
         *   Can build an index from raw text chunks or existing leaf nodes.
@@ -71,16 +71,18 @@ The core logic resides in the `raptor/` directory. The system is designed with a
 These files abstract interactions with external APIs (like OpenAI) or local models (HuggingFace).
 
 *   **`raptor/EmbeddingModels.py`**
-    *   `OpenAIEmbeddingModel`: Uses OpenAI's `text-embedding-ada-002` (or similar).
-    *   `SBertEmbeddingModel`: Uses SentenceTransformers (e.g., `multi-qa-mpnet-base-cos-v1`).
+    *   `OpenAIEmbeddingModel`: Uses OpenAI's `text-embedding-ada-002` (or similar). 需要API，虽然不贵。
+    *   `SBertEmbeddingModel`: Uses SentenceTransformers (e.g., `multi-qa-mpnet-base-cos-v1`). 这个option是将模型下载到本地进行运行，不需要API。
 
 *   **`raptor/SummarizationModels.py`**
     *   `GPT3TurboSummarizationModel`: Uses `gpt-3.5-turbo` to summarize text clusters.
     *   `GPT3SummarizationModel`: Uses legacy `text-davinci-003`.
+    *   两个模型全部要求使用OpenAI API。
 
 *   **`raptor/QAModels.py`**
     *   `GPT3TurboQAModel` / `GPT4QAModel`: Uses OpenAI Chat models to answer questions based on retrieved context.
     *   `UnifiedQAModel`: Uses the T5-based UnifiedQA model (local execution).
+    *   GPT 模型当然需要API。本地的模型包括T5的3个模型：`t5-small`, `t5-base`, `t5-large`。只有small和base可以在PC上运行。而large需要比较大的显存，一般PC不支持。同时small模型只有60M即0.06B个参数，性能非常差，只能根据提供的context做问题，无法做close-book inference。
 
 ### 5. 🛠️ Utilities
 *   **`raptor/utils.py`**
@@ -103,3 +105,9 @@ These files abstract interactions with external APIs (like OpenAI) or local mode
     *   Question -> Embedding.
     *   Search Tree (e.g., all nodes) -> Top-k relevant nodes.
     *   Top-k Context + Question -> QA Model -> **Answer**.
+
+# 包安装
+- faiss-cpu未安装成功
+- sentencepiece安装成功，为了使用transformers的T5 QA model。
+- umap-learn安装成功，用来做dimensionality reduction的库。
+- tiktoken安装成功。

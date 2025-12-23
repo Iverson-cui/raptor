@@ -9,6 +9,10 @@ logging.basicConfig(format="%(asctime)s - %(message)s", level=logging.INFO)
 
 
 class BaseEmbeddingModel(ABC):
+    """
+    Blueprint for embedding models.
+    All embedding models should inherit from this class and implement the create_embedding method.
+    """
     @abstractmethod
     def create_embedding(self, text):
         pass
@@ -28,10 +32,12 @@ class OpenAIEmbeddingModel(BaseEmbeddingModel):
             .embedding
         )
 
-
 class SBertEmbeddingModel(BaseEmbeddingModel):
-    def __init__(self, model_name="sentence-transformers/multi-qa-mpnet-base-cos-v1"):
-        self.model = SentenceTransformer(model_name)
+
+    def __init__(self, model_name="nomic-ai/modernbert-embed-base"):
+        self.model = SentenceTransformer(
+            model_name, trust_remote_code=True, local_files_only=True
+        )
 
     def create_embedding(self, text):
         return self.model.encode(text)

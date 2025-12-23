@@ -14,6 +14,8 @@ from .utils import (distances_from_embeddings, get_children, get_embeddings,
 logging.basicConfig(format="%(asctime)s - %(message)s", level=logging.INFO)
 
 
+# ClusterTreeBuilder and ClusterTreeConfig is just one type of TreeBuilder and TreeBuilderConfig
+# TreeBuilder and TreeBuilderConfig are base classes and support multiple child classes, i.e. multiple types of tree builders. Cluster is one of them, you can create your own ways of building trees
 class ClusterTreeConfig(TreeBuilderConfig):
     def __init__(
         self,
@@ -23,6 +25,7 @@ class ClusterTreeConfig(TreeBuilderConfig):
         *args,
         **kwargs,
     ):
+        # ClusterTreeConfig has 3 extra parameters compared to TreeBuilderConfig base class
         super().__init__(*args, **kwargs)
         self.reduction_dimension = reduction_dimension
         self.clustering_algorithm = clustering_algorithm

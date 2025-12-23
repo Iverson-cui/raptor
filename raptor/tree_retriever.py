@@ -5,7 +5,11 @@ from typing import Dict, List, Set
 import tiktoken
 from tenacity import retry, stop_after_attempt, wait_random_exponential
 
-from .EmbeddingModels import BaseEmbeddingModel, OpenAIEmbeddingModel
+from .EmbeddingModels import (
+    BaseEmbeddingModel,
+    OpenAIEmbeddingModel,
+    SBertEmbeddingModel,
+)
 from .Retrievers import BaseRetriever
 from .tree_structures import Node, Tree
 from .utils import (distances_from_embeddings, get_children, get_embeddings,
@@ -56,13 +60,15 @@ class TreeRetrieverConfig:
         self.selection_mode = selection_mode
 
         if context_embedding_model is None:
-            context_embedding_model = "OpenAI"
+            context_embedding_model = "SBERT"
+            print("Context embedding model not provided, defaulting to 'SBERT'")
         if not isinstance(context_embedding_model, str):
             raise ValueError("context_embedding_model must be a string")
         self.context_embedding_model = context_embedding_model
 
         if embedding_model is None:
-            embedding_model = OpenAIEmbeddingModel()
+            embedding_model = SBertEmbeddingModel()
+            print("Embedding model not provided, defaulting to SBertEmbeddingModel")
         if not isinstance(embedding_model, BaseEmbeddingModel):
             raise ValueError(
                 "embedding_model must be an instance of BaseEmbeddingModel"

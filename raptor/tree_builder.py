@@ -10,9 +10,16 @@ import openai
 import tiktoken
 from tenacity import retry, stop_after_attempt, wait_random_exponential
 
-from .EmbeddingModels import BaseEmbeddingModel, OpenAIEmbeddingModel
-from .SummarizationModels import (BaseSummarizationModel,
-                                  GPT3TurboSummarizationModel)
+from .EmbeddingModels import (
+    BaseEmbeddingModel,
+    OpenAIEmbeddingModel,
+    SBertEmbeddingModel,
+)
+from .SummarizationModels import (
+    BaseSummarizationModel,
+    DeepSeekSummarizationModel,
+    GPT3TurboSummarizationModel,
+)
 from .tree_structures import Node, Tree
 from .utils import (distances_from_embeddings, get_children, get_embeddings,
                     get_node_list, get_text,
@@ -22,6 +29,7 @@ logging.basicConfig(format="%(asctime)s - %(message)s", level=logging.INFO)
 
 
 class TreeBuilderConfig:
+
     def __init__(
         self,
         tokenizer=None,
@@ -31,6 +39,7 @@ class TreeBuilderConfig:
         top_k=None,
         selection_mode=None,
         summarization_length=None,
+        # tree builder has 3 models
         summarization_model=None,
         embedding_models=None,
         cluster_embedding_model=None,
@@ -73,16 +82,18 @@ class TreeBuilderConfig:
             summarization_length = 100
         self.summarization_length = summarization_length
 
+        # default summarization model set to DeepSeek
         if summarization_model is None:
-            summarization_model = GPT3TurboSummarizationModel()
+            summarization_model = DeepSeekSummarizationModel()
         if not isinstance(summarization_model, BaseSummarizationModel):
             raise ValueError(
                 "summarization_model must be an instance of BaseSummarizationModel"
             )
+        # summarization_model is an instance of BaseSummarizationModel
         self.summarization_model = summarization_model
 
         if embedding_models is None:
-            embedding_models = {"OpenAI": OpenAIEmbeddingModel()}
+            embedding_models = {"SBERT": SBertEmbeddingModel()}
         if not isinstance(embedding_models, dict):
             raise ValueError(
                 "embedding_models must be a dictionary of model_name: instance pairs"
@@ -92,14 +103,17 @@ class TreeBuilderConfig:
                 raise ValueError(
                     "All embedding models must be an instance of BaseEmbeddingModel"
                 )
+        # self.embedding_models is a dictionary whose keys are model names and values are instances of embedding models
         self.embedding_models = embedding_models
 
+        # cluster_embedding_model should have the same name with embedding_models keys
         if cluster_embedding_model is None:
-            cluster_embedding_model = "OpenAI"
+            cluster_embedding_model = "SBERT"
         if cluster_embedding_model not in self.embedding_models:
             raise ValueError(
                 "cluster_embedding_model must be a key in the embedding_models dictionary"
             )
+        # self.cluster_embedding_model is a string representing the model name used for clustering
         self.cluster_embedding_model = cluster_embedding_model
 
     def log_config(self):
@@ -259,7 +273,7 @@ class TreeBuilder:
 
         return leaf_nodes
 
-    def build_from_text(self, text: str, use_multithreading: bool = True) -> Tree:
+    def build_from_text(self, text: str, use_multithreading: bool = False) -> Tree:
         """Builds a golden tree from the input text, optionally using multithreading.
         
         Step 2 (Leaf Node Creation):

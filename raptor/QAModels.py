@@ -13,6 +13,9 @@ from transformers import T5ForConditionalGeneration, T5Tokenizer
 
 
 class BaseQAModel(ABC):
+    """
+    Abstract base class for question answering models.
+    """
     @abstractmethod
     def answer_question(self, context, question):
         pass
@@ -32,15 +35,15 @@ class GPT3QAModel(BaseQAModel):
     @retry(wait=wait_random_exponential(min=1, max=20), stop=stop_after_attempt(6))
     def answer_question(self, context, question, max_tokens=150, stop_sequence=None):
         """
-        Generates a summary of the given context using the GPT-3 model.
+        Generates answer based on the given context using the GPT-3 model.
 
         Args:
-            context (str): The text to summarize.
-            max_tokens (int, optional): The maximum number of tokens in the generated summary. Defaults to 150.
-            stop_sequence (str, optional): The sequence at which to stop summarization. Defaults to None.
+            context (str): The text.
+            max_tokens (int, optional): The maximum number of tokens in the generated answer. Defaults to 150.
+            stop_sequence (str, optional): The sequence at which to stop answering. Defaults to None.
 
         Returns:
-            str: The generated summary.
+            str: The generated answer.
         """
         try:
             response = self.client.completions.create(
@@ -165,8 +168,14 @@ class GPT4QAModel(BaseQAModel):
 
 
 class UnifiedQAModel(BaseQAModel):
-    def __init__(self, model_name="allenai/unifiedqa-v2-t5-3b-1363200"):
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    def __init__(self, model_name="google/flan-t5-small"):
+        if torch.cuda.is_available():
+            self.device = torch.device("cuda")
+        elif torch.backends.mps.is_available():
+            self.device = torch.device("mps")
+        else:
+            self.device = torch.device("cpu")
         self.model = T5ForConditionalGeneration.from_pretrained(model_name).to(
             self.device
         )
