@@ -168,7 +168,9 @@ class GPT4QAModel(BaseQAModel):
 
 
 class UnifiedQAModel(BaseQAModel):
-
+    """
+    flan-t5-small based QA model, used for PC inference
+    """
     def __init__(self, model_name="google/flan-t5-small"):
         if torch.cuda.is_available():
             self.device = torch.device("cuda")
@@ -176,6 +178,31 @@ class UnifiedQAModel(BaseQAModel):
             self.device = torch.device("mps")
         else:
             self.device = torch.device("cpu")
+        self.model = T5ForConditionalGeneration.from_pretrained(model_name).to(
+            self.device
+        )
+        self.tokenizer = T5Tokenizer.from_pretrained(model_name)
+
+    def run_model(self, input_string, **generator_args):
+        input_ids = self.tokenizer.encode(input_string, return_tensors="pt").to(
+            self.device
+        )
+        res = self.model.generate(input_ids, **generator_args)
+        return self.tokenizer.batch_decode(res, skip_special_tokens=True)
+
+    def answer_question(self, context, question):
+        input_string = question + " \\n " + context
+        output = self.run_model(input_string)
+        return output[0]
+
+
+class UnifiedQAModel_in_paper(BaseQAModel):
+    """
+    unifiedqa-v2-t5-3b-1363200 based QA model, used in the original paper and on server
+    """
+
+    def __init__(self, model_name="allenai/unifiedqa-v2-t5-3b-1363200"):
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model = T5ForConditionalGeneration.from_pretrained(model_name).to(
             self.device
         )

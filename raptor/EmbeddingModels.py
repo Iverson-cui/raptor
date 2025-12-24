@@ -33,11 +33,26 @@ class OpenAIEmbeddingModel(BaseEmbeddingModel):
         )
 
 class SBertEmbeddingModel(BaseEmbeddingModel):
-
+    """
+    Using modern BERT embedding model from Nomic AI.
+    This model is said to perform better than multi-qa-mpnet-base-cos-v1 on various tasks.
+    """
     def __init__(self, model_name="nomic-ai/modernbert-embed-base"):
         self.model = SentenceTransformer(
             model_name, trust_remote_code=True, local_files_only=True
         )
+
+    def create_embedding(self, text):
+        return self.model.encode(text)
+
+
+class MpnetBaseCosModel(BaseEmbeddingModel):
+    """
+    The original embedding model used in RAPTOR, based on Sentence-BERT.
+    """
+
+    def __init__(self, model_name="sentence-transformers/multi-qa-mpnet-base-cos-v1"):
+        self.model = SentenceTransformer(model_name)
 
     def create_embedding(self, text):
         return self.model.encode(text)
