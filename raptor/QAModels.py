@@ -9,7 +9,12 @@ from abc import ABC, abstractmethod
 
 import torch
 from tenacity import retry, stop_after_attempt, wait_random_exponential
-from transformers import T5ForConditionalGeneration, T5Tokenizer
+from transformers import (
+    T5ForConditionalGeneration,
+    T5Tokenizer,
+    AutoModelForCausalLM,
+    AutoTokenizer,
+)
 
 
 class BaseQAModel(ABC):
@@ -169,7 +174,7 @@ class GPT4QAModel(BaseQAModel):
 
 class UnifiedQAModel(BaseQAModel):
     """
-    flan-t5-small based QA model, used for PC inference
+    flan-t5-small based QA model, used for local PC inference
     """
     def __init__(self, model_name="google/flan-t5-small"):
         if torch.cuda.is_available():
@@ -199,6 +204,7 @@ class UnifiedQAModel(BaseQAModel):
 class UnifiedQAModel_in_paper(BaseQAModel):
     """
     unifiedqa-v2-t5-3b-1363200 based QA model, used in the original paper and on server
+    T5ForConditionalGeneration, T5Tokenizer are needed for encoder-decoder models.
     """
 
     def __init__(self, model_name="allenai/unifiedqa-v2-t5-3b-1363200"):
@@ -219,3 +225,161 @@ class UnifiedQAModel_in_paper(BaseQAModel):
         input_string = question + " \\n " + context
         output = self.run_model(input_string)
         return output[0]
+
+
+class DeepSeekQAModel(BaseQAModel):
+    """
+    Implementation for DeepSeek-V2-Lite-Chat.
+    Optimized for NVIDIA A6000 with bfloat16 and trust_remote_code.
+    For decoder-only models, AutoModelForCausalLM, AutoTokenizer are needed.
+    """
+
+    def __init__(self, model_path="DeepSeek-V2-Lite-Chat"):
+        """
+        Args:
+            model_path (str): Path to the model folder on your server.
+                              e.g. "/path/to/DeepSeek-V2-Lite-Chat"
+        """
+        print(f"Loading DeepSeek model from {model_path}...")
+        if torch.cuda.is_available():
+            self.device = "cuda"
+        elif torch.backends.mps.is_available():
+            self.device = "mps"
+        else:
+            self.device = "cpu"
+
+        # Load tokenizer
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            model_path, trust_remote_code=True
+        )
+
+        # Load model
+        # A6000 supports bfloat16 which is more stable for training/inference than float16
+        self.model = AutoModelForCausalLM.from_pretrained(
+            model_path,
+            trust_remote_code=True,
+            torch_dtype=torch.bfloat16,
+            device_map="auto",
+        )
+        self.model.eval()  # Set to evaluation mode
+
+    def answer_question(self, context, question, max_new_tokens=512):
+        # DeepSeek V2 specific system prompt structure
+        messages = [
+            {
+                "role": "system",
+                "content": "You are a helpful assistant. Answer strictly based on the provided context.",
+            },
+            {
+                "role": "user",
+                "content": f"Context:\n{context}\n\nQuestion:\n{question}",
+            },
+        ]
+
+        # Apply chat template (handles the specific special tokens for DeepSeek)
+        input_text = self.tokenizer.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True
+        )
+
+        inputs = self.tokenizer(input_text, return_tensors="pt").to(self.device)
+
+        with torch.no_grad():
+            outputs = self.model.generate(
+                **inputs,
+                max_new_tokens=max_new_tokens,
+                temperature=0.1,  # Low temp for factual QA
+                top_p=0.9,
+                do_sample=True,
+                eos_token_id=self.tokenizer.eos_token_id,
+            )
+
+        # Decode response (skipping the input prompt)
+        response = self.tokenizer.decode(
+            outputs[0][len(inputs.input_ids[0]) :], skip_special_tokens=True
+        )
+        return response.strip()
+
+
+class QwenQAModel(BaseQAModel):
+    """
+    Implementation for Qwen2 or Qwen3 Instruct models.
+    """
+
+    def __init__(self, model_path="Qwen2-7B-Instruct"):
+        """
+        Args:
+            model_path (str): Path to the model folder on your server.
+                              e.g. "/path/to/Qwen2-7B-Instruct" or "Qwen3-14B"
+        """
+        # 1. Get the base path from environment, or use a default
+        base_dir = os.environ.get("SERVER_MODEL_PATH")
+
+        if base_dir:
+            # Join the base path with the simple folder name
+            augmented_model_path = os.path.join(base_dir, model_path)
+        else:
+            # Fallback: If variable isn't set, try using the name directly
+            # (assuming full path was passed or it's a hub ID)
+            augmented_model_path = model_path
+        print(f"Loading Qwen from: {augmented_model_path}")
+
+        # 2. Check if it exists (Good for debugging server issues)
+        if not os.path.exists(augmented_model_path):
+            # Try loading as a Hub ID if local path fails?
+            # Or just raise error to prevent accidental downloads.
+            print(f"Warning: Local path {augmented_model_path} does not exist.")
+        print(f"Loading Qwen model from {augmented_model_path}...")
+        if torch.cuda.is_available():
+            self.device = "cuda"
+        elif torch.backends.mps.is_available():
+            self.device = "mps"
+        else:
+            self.device = "cpu"
+
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            augmented_model_path, trust_remote_code=True
+        )
+
+        # Qwen models run excellently in bfloat16
+        self.model = AutoModelForCausalLM.from_pretrained(
+            augmented_model_path,
+            device_map="auto",
+            trust_remote_code=True,
+            torch_dtype=torch.bfloat16,
+        )
+        self.model.eval()
+
+    def answer_question(self, context, question, max_new_tokens=512):
+        # Standard ChatML format for Qwen
+        messages = [
+            {
+                "role": "system",
+                "content": "You are a helpful assistant. Answer the question using only the context provided.",
+            },
+            {"role": "user", "content": f"Context: {context}\n\nQuestion: {question}"},
+        ]
+
+        text = self.tokenizer.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True
+        )
+
+        model_inputs = self.tokenizer([text], return_tensors="pt").to(self.device)
+
+        with torch.no_grad():
+            generated_ids = self.model.generate(
+                **model_inputs,
+                max_new_tokens=max_new_tokens,
+                temperature=0.1,
+                do_sample=True,
+            )
+
+        # Slice output to remove input tokens
+        generated_ids = [
+            output_ids[len(input_ids) :]
+            for input_ids, output_ids in zip(model_inputs.input_ids, generated_ids)
+        ]
+
+        response = self.tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[
+            0
+        ]
+        return response.strip()
