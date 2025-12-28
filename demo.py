@@ -33,7 +33,7 @@ print("Save the tree.")
 SAVE_PATH = "demo/cinderella_myself"
 RA.save(SAVE_PATH)
 
-print("Load the tree.")
-RA = RetrievalAugmentation(tree=SAVE_PATH)
-answer = RA.answer_question(question=question)
-print("Answer: ", answer)
+# print("Load the tree.")
+# RA = RetrievalAugmentation(tree=SAVE_PATH)
+# answer = RA.answer_question(question=question)
+# print("Answer: ", answer)
