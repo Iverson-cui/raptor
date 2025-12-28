@@ -68,6 +68,7 @@ class BGEM3Model(BaseEmbeddingModel):
         # BGE-M3 works excellently with SentenceTransformer wrapper
         print(f"Loading BGE-M3 from {model_name}...")
         self.model = SentenceTransformer(model_name)
+        self.model.max_seq_length = 1024  # set max length for long context
 
     def create_embedding(self, text):
         # BGE-M3 automatically handles the dense retrieval part
