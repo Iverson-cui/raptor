@@ -103,6 +103,15 @@ class ClusterTreeBuilder(TreeBuilder):
                 max_tokens=summarization_length,
             )
 
+            # 将待检查的变量赋值给临时变量，方便操作
+            obj = summarized_text
+
+            # 打印详细信息
+            print(
+                f"DEBUG CHECK -> Type: {type(obj)}, "
+                f"Length: {len(obj) if obj is not None else 'N/A'}, "
+                f"Value: {repr(obj)[:100]}..."
+            )  # 只显示前100个字符防止刷屏
             logging.info(
                 f"Node Texts Length: {len(self.tokenizer.encode(node_texts))}, Summarized Text Length: {len(self.tokenizer.encode(summarized_text))}"
             )
