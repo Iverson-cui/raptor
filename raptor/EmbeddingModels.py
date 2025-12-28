@@ -67,7 +67,7 @@ class BGEM3Model(BaseEmbeddingModel):
     def __init__(self, model_name="BAAI/bge-m3"):
         # BGE-M3 works excellently with SentenceTransformer wrapper
         print(f"Loading BGE-M3 from {model_name}...")
-        self.model = SentenceTransformer(model_name, device_map="auto")
+        self.model = SentenceTransformer(model_name)
 
     def create_embedding(self, text):
         # BGE-M3 automatically handles the dense retrieval part
