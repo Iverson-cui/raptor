@@ -1,12 +1,12 @@
 import random
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ThreadPoolExecutor
 
 import faiss
 import numpy as np
 import tiktoken
 from tqdm import tqdm
 
-from .EmbeddingModels import BaseEmbeddingModel, OpenAIEmbeddingModel
+from .EmbeddingModels import BGEM3Model, BaseEmbeddingModel, OpenAIEmbeddingModel
 from .Retrievers import BaseRetriever
 from .utils import split_text
 
@@ -50,10 +50,10 @@ class FaissRetrieverConfig:
         self.max_tokens = max_tokens
         self.max_context_tokens = max_context_tokens
         self.use_top_k = use_top_k
-        self.embedding_model = embedding_model or OpenAIEmbeddingModel()
+        self.embedding_model = embedding_model or BGEM3Model()
         self.question_embedding_model = question_embedding_model or self.embedding_model
         self.tokenizer = tokenizer
-        self.embedding_model_string = embedding_model_string or "OpenAI"
+        self.embedding_model_string = embedding_model_string or "BGEM3"
 
     def log_config(self):
         config_summary = """
@@ -110,7 +110,7 @@ class FaissRetriever(BaseRetriever):
             split_text(doc_text, self.tokenizer, self.max_tokens)
         )
 
-        with ProcessPoolExecutor() as executor:
+        with ThreadPoolExecutor() as executor:
             futures = [
                 executor.submit(self.embedding_model.create_embedding, context_chunk)
                 for context_chunk in self.context_chunks

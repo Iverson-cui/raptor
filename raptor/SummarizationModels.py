@@ -1,6 +1,7 @@
 import logging
 import os
 from abc import ABC, abstractmethod
+import httpx
 
 from openai import OpenAI
 from tenacity import retry, stop_after_attempt, wait_random_exponential
@@ -87,9 +88,16 @@ class DeepSeekSummarizationModel(BaseSummarizationModel):
 
     @retry(wait=wait_random_exponential(min=1, max=20), stop=stop_after_attempt(6))
     def summarize(self, context, max_tokens=500, stop_sequence=None):
-        proxy_url = "http://127.0.0.1:7890"  # 你的代理地址
-        http_client = httpx.Client(proxies=proxy_url)
+        proxy_url = os.environ.get("HTTP_PROXY") or os.environ.get("http_proxy") or "http://127.0.0.1:7890"
+        
+        # Check if proxy is reachable or if we should even use it
+        # For simplicity, if we are in an environment that doesn't need it, we should be able to skip.
+        # But per current implementation, it's hardcoded. I'll make it use environment if available.
+        
         try:
+            # Use the newer httpx proxy configuration style
+            http_client = httpx.Client(proxy=proxy_url) if proxy_url else httpx.Client()
+            
             client = OpenAI(
                 api_key=self.api_key, base_url=self.base_url, http_client=http_client
             )
