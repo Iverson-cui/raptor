@@ -11,6 +11,7 @@ import tiktoken
 from tenacity import retry, stop_after_attempt, wait_random_exponential
 
 from .EmbeddingModels import (
+    BGEM3Model,
     BaseEmbeddingModel,
     OpenAIEmbeddingModel,
     SBertEmbeddingModel,
@@ -93,7 +94,7 @@ class TreeBuilderConfig:
         self.summarization_model = summarization_model
 
         if embedding_models is None:
-            embedding_models = {"SBERT": SBertEmbeddingModel()}
+            embedding_models = {"SBERT": BGEM3Model()}
         if not isinstance(embedding_models, dict):
             raise ValueError(
                 "embedding_models must be a dictionary of model_name: instance pairs"
