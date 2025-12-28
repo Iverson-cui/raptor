@@ -3,7 +3,7 @@ import pickle
 
 from .cluster_tree_builder import ClusterTreeBuilder, ClusterTreeConfig
 from .EmbeddingModels import BaseEmbeddingModel
-from .QAModels import BaseQAModel, GPT3TurboQAModel, UnifiedQAModel
+from .QAModels import BaseQAModel, GPT3TurboQAModel, QwenQAModel, UnifiedQAModel
 from .SummarizationModels import BaseSummarizationModel
 from .tree_builder import TreeBuilder, TreeBuilderConfig
 from .tree_retriever import TreeRetriever, TreeRetrieverConfig
@@ -36,7 +36,7 @@ class RetrievalAugmentationConfig:
         tr_top_k=5,
         tr_selection_mode="top_k",
         # query embedding model
-        tr_context_embedding_model="SBERT",
+        tr_context_embedding_model="BGEM3",
         # tree retriever local embedding model
         tr_embedding_model=None,
         tr_num_layers=None,
@@ -54,7 +54,7 @@ class RetrievalAugmentationConfig:
         # tree builder local embedding models
         tb_embedding_models=None,
         # which embedding to use for clustering in tree builder
-        tb_cluster_embedding_model="SBERT",
+        tb_cluster_embedding_model="BGEM3",
     ):
         # Validate tree_builder_type
         if tree_builder_type not in supported_tree_builders:
@@ -163,7 +163,7 @@ class RetrievalAugmentationConfig:
         print("2 config done")
         self.tree_builder_config = tree_builder_config
         self.tree_retriever_config = tree_retriever_config
-        self.qa_model = qa_model or UnifiedQAModel()
+        self.qa_model = qa_model or QwenQAModel()
         self.tree_builder_type = tree_builder_type
 
     def log_config(self):
