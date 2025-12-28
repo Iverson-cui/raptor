@@ -73,6 +73,15 @@ class BGEM3Model(BaseEmbeddingModel):
     def create_embedding(self, text):
         # BGE-M3 automatically handles the dense retrieval part
         # 'return_dense=True' is default in encode
+        if isinstance(text, Exception) or (
+            isinstance(text, list) and len(text) > 0 and isinstance(text[0], Exception)
+        ):
+            print(f"!!! 严重警告: 传入了异常对象而不是文本 !!!")
+            print(f"Type: {type(text)}")
+            print(f"Content: {text}")
+            # 强制转换为字符串，或者在这里直接 return None 跳过
+            return None
+        # --- 调试代码结束 ---
         return self.model.encode(
             text,
             normalize_embeddings=True,  # Critical for Cosine Similarity
