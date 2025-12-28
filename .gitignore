@@ -31,3 +31,6 @@ finetuning_ckpts/
 assertion.log
 *.log
 *.db
+
+# my tests
+simple_rag_clustering/

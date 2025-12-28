@@ -94,7 +94,7 @@ class TreeBuilderConfig:
         self.summarization_model = summarization_model
 
         if embedding_models is None:
-            embedding_models = {"SBERT": BGEM3Model()}
+            embedding_models = {"BGEM3": BGEM3Model()}
         if not isinstance(embedding_models, dict):
             raise ValueError(
                 "embedding_models must be a dictionary of model_name: instance pairs"
