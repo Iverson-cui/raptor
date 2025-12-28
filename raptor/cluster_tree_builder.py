@@ -97,6 +97,8 @@ class ClusterTreeBuilder(TreeBuilder):
             # concatenate all texts from the cluster into node_texts for summarization
             node_texts = get_text(cluster)
 
+            logging.info(f"Summarization model type: {type(self.summarization_model)}")
+
             # defaults to GPT3Turbo to summarize
             summarized_text = self.summarize(
                 context=node_texts,
