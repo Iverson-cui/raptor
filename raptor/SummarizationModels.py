@@ -87,8 +87,12 @@ class DeepSeekSummarizationModel(BaseSummarizationModel):
 
     @retry(wait=wait_random_exponential(min=1, max=20), stop=stop_after_attempt(6))
     def summarize(self, context, max_tokens=500, stop_sequence=None):
+        proxy_url = "http://127.0.0.1:7890"  # 你的代理地址
+        http_client = httpx.Client(proxies=proxy_url)
         try:
-            client = OpenAI(api_key=self.api_key, base_url=self.base_url)
+            client = OpenAI(
+                api_key=self.api_key, base_url=self.base_url, http_client=http_client
+            )
 
             response = client.chat.completions.create(
                 model=self.model,
