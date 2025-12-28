@@ -109,8 +109,12 @@ class TreeBuilderConfig:
 
         # cluster_embedding_model should have the same name with embedding_models keys
         if cluster_embedding_model is None:
-            cluster_embedding_model = "SBERT"
+            cluster_embedding_model = "BGEM3"
         if cluster_embedding_model not in self.embedding_models:
+            print(
+                f"Cluster embedding model {cluster_embedding_model} not found in embedding_models dictionary."
+            )
+            print("Available models: ", list(self.embedding_models.keys()))
             raise ValueError(
                 "cluster_embedding_model must be a key in the embedding_models dictionary"
             )
