@@ -2,7 +2,10 @@ import logging
 import os
 from abc import ABC, abstractmethod
 import httpx
+import torch
 
+# import os
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from openai import OpenAI
 from tenacity import retry, stop_after_attempt, wait_random_exponential
