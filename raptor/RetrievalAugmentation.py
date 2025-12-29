@@ -329,7 +329,7 @@ class RetrievalAugmentation:
         context, layer_information = self.retrieve(
             question, start_layer, num_layers, top_k, max_tokens, collapse_tree, True
         )
-        print("Retrieved Context: ", context)
+        # print("Retrieved Context: ", context)
         answer = self.qa_model.answer_question(context, question)
 
         if return_layer_information:
