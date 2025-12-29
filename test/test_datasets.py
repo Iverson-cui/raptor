@@ -13,7 +13,10 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from raptor import RetrievalAugmentation, RetrievalAugmentationConfig
 from raptor.QAModels import UnifiedQAModel, QwenQAModel
 from raptor.EmbeddingModels import SBertEmbeddingModel, BGEM3Model
-from raptor.SummarizationModels import DeepSeekSummarizationModel
+from raptor.SummarizationModels import (
+    DeepSeekSummarizationModel,
+    QwenLocalSummarizationModel,
+)
 
 # Suppress warnings
 warnings.filterwarnings("ignore")
@@ -25,7 +28,7 @@ logging.basicConfig(
 )
 
 
-def evaluate_on_squad(local_test=True):
+def evaluate_on_squad(local_test=False):
     """
     Evaluates RAPTOR on the SQuAD dataset.
 
@@ -33,6 +36,7 @@ def evaluate_on_squad(local_test=True):
         local_test (bool): If True, runs on a small subset (10 contexts, 20 questions).
                            If False, runs on the entire validation dataset.
     """
+    print("local_test =", local_test)
     logging.info(
         f"Starting SQuAD evaluation. Mode: {'Local Test' if local_test else 'Full Dataset'}"
     )
@@ -41,6 +45,7 @@ def evaluate_on_squad(local_test=True):
     dataset = load_dataset("squad", split="validation")
 
     # Define slicing parameters
+    # for local test, we limit the number of contexts and questions
     if local_test:
         num_contexts_target = 25
         num_eval_questions_target = 50
@@ -93,6 +98,7 @@ def evaluate_on_squad(local_test=True):
         qa_model = QwenQAModel()
         # Initialize BGEM3Model for embeddings
         embedding_model = BGEM3Model()
+        summarization_model = QwenLocalSummarizationModel()
 
     RAC = RetrievalAugmentationConfig(
         summarization_model=summarization_model,
