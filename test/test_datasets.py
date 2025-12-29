@@ -44,6 +44,31 @@ def evaluate_on_squad(local_test=False):
     logging.info("Loading SQuAD dataset validation split...")
     dataset = load_dataset("squad", split="validation")
 
+    if local_test == 0:
+
+        # QA Model gets GPU 0 and 1
+        qa_memory_map = {
+            0: "0GiB",
+            1: "0GiB",
+            2: "0GiB",
+            3: "0GiB",
+            4: "40GiB",
+            5: "40GiB",
+            6: "40GiB",
+        }
+
+        # Summarization Model gets GPU 2 and 3
+        summ_memory_map = {
+            0: "0GiB",
+            1: "0GiB",
+            2: "0GiB",
+            3: "0GiB",
+            4: "40GiB",
+            5: "40GiB",
+            6: "40GiB",
+        }
+
+        embedding_device = "cuda:3"
     # Define slicing parameters
     # for local test, we limit the number of contexts and questions
     if local_test:
@@ -99,10 +124,12 @@ def evaluate_on_squad(local_test=False):
     else:
         logging.info("Initializing SERVER models: Qwen (QA) & BGEM3 (Embedding)...")
         # Initialize QwenQAModel - assuming default path or SERVER_MODEL_PATH env var is set on server
-        qa_model = QwenQAModel()
+        qa_model = QwenQAModel(max_memory=qa_memory_map, device_map="auto")
         # Initialize BGEM3Model for embeddings
-        embedding_model = BGEM3Model()
-        summarization_model = QwenLocalSummarizationModel()
+        embedding_model = BGEM3Model(device="cuda:3")
+        summarization_model = QwenLocalSummarizationModel(
+            memory_map=summ_memory_map, device_map="auto"
+        )
 
     RAC = RetrievalAugmentationConfig(
         summarization_model=summarization_model,

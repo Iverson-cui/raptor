@@ -305,7 +305,12 @@ class QwenQAModel(BaseQAModel):
     Implementation for Qwen2 or Qwen3 Instruct models.
     """
 
-    def __init__(self, model_path="/opt/pretrained_models/Qwen2-7B-Instruct"):
+    def __init__(
+        self,
+        model_path="/opt/pretrained_models/Qwen2-7B-Instruct",
+        device_map="auto",
+        max_memory=None,
+    ):
         """
         Args:
             model_path (str): Path to the model folder on your server.
@@ -343,7 +348,8 @@ class QwenQAModel(BaseQAModel):
         # Qwen models run excellently in bfloat16
         self.model = AutoModelForCausalLM.from_pretrained(
             augmented_model_path,
-            device_map="auto",
+            device_map=device_map,
+            max_memory=max_memory,
             trust_remote_code=True,
             torch_dtype=torch.bfloat16,
         )

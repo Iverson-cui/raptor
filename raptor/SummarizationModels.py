@@ -126,8 +126,12 @@ class DeepSeekSummarizationModel(BaseSummarizationModel):
 
 
 class QwenLocalSummarizationModel(BaseSummarizationModel):
+
     def __init__(
-        self, model_root="/opt/pretrained_models/models--Qwen--Qwen2.5-32B-Instruct"
+        self,
+        model_root="/opt/pretrained_models/models--Qwen--Qwen2.5-32B-Instruct",
+        memory_map=None,
+        device_map="auto",
     ):
         """
         Initializes the local Qwen model directly from the HF cache directory.
@@ -165,7 +169,8 @@ class QwenLocalSummarizationModel(BaseSummarizationModel):
         # torch_dtype=torch.float16 reduces memory usage by half compared to float32
         self.model = AutoModelForCausalLM.from_pretrained(
             self.model_path,
-            device_map="auto",
+            device_map=device_map,
+            max_memory=memory_map,
             torch_dtype=torch.float16,
             trust_remote_code=True,
         )

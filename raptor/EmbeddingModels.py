@@ -64,10 +64,10 @@ class BGEM3Model(BaseEmbeddingModel):
     State-of-the-art for multilingual and long-context (8192 tokens).
     """
 
-    def __init__(self, model_name="BAAI/bge-m3"):
+    def __init__(self, model_name="BAAI/bge-m3", device="cpu"):
         # BGE-M3 works excellently with SentenceTransformer wrapper
-        print(f"Loading BGE-M3 from {model_name}...")
-        self.model = SentenceTransformer(model_name)
+        print(f"Loading BGE-M3 from {model_name} on device {device}...")
+        self.model = SentenceTransformer(model_name, device=device)
         self.model.max_seq_length = 2048  # set max length for long context
 
     def create_embedding(self, text):
