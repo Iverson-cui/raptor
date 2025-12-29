@@ -79,8 +79,8 @@ def evaluate_on_squad(local_test=False):
         # Traing 90k 18k val 10k 2k
         # num_contexts_target = float("inf")
         # num_eval_questions_target = float("inf")
-        num_contexts_target = 500
-        num_eval_questions_target = 2000
+        num_contexts_target = 250
+        num_eval_questions_target = 500
 
     # 1. Collect contexts to build the unified tree
     logging.info("Gathering contexts...")
