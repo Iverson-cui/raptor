@@ -50,8 +50,12 @@ def evaluate_on_squad(local_test=False):
         num_contexts_target = 25
         num_eval_questions_target = 50
     else:
-        num_contexts_target = float("inf")
-        num_eval_questions_target = float("inf")
+        # there are roughly 100k questions and 20k contextx in SQuADv1.1.
+        # Traing 90k 18k val 10k 2k
+        # num_contexts_target = float("inf")
+        # num_eval_questions_target = float("inf")
+        num_contexts_target = 500
+        num_eval_questions_target = 2000
 
     # 1. Collect contexts to build the unified tree
     logging.info("Gathering contexts...")
@@ -163,4 +167,4 @@ if __name__ == "__main__":
         os.environ["OPENAI_API_KEY"] = "not_used"
 
     # Defaulting to local_test=True for verification run
-    evaluate_on_squad(local_test=True)
+    evaluate_on_squad(local_test=False)
