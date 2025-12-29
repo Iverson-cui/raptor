@@ -97,8 +97,8 @@ class ClusterTreeBuilder(TreeBuilder):
             # concatenate all texts from the cluster into node_texts for summarization
             node_texts = get_text(cluster)
 
-            logging.info(f"Summarization model type: {type(self.summarization_model)}")
-            logging.info(f"Node Texts: {node_texts}")
+            # logging.info(f"Summarization model type: {type(self.summarization_model)}")
+            # logging.info(f"Node Texts: {node_texts}")
 
             # defaults to GPT3Turbo to summarize
             summarized_text = self.summarize(
@@ -106,18 +106,18 @@ class ClusterTreeBuilder(TreeBuilder):
                 max_tokens=summarization_length,
             )
 
-            # 将待检查的变量赋值给临时变量，方便操作
-            obj = summarized_text
+            # # 将待检查的变量赋值给临时变量，方便操作
+            # obj = summarized_text
 
-            # 打印详细信息
-            print(
-                f"DEBUG CHECK -> Type: {type(obj)}, "
-                f"Length: {len(obj) if obj is not None else 'N/A'}, "
-                f"Value: {repr(obj)[:100]}..."
-            )  # 只显示前100个字符防止刷屏
-            logging.info(
-                f"Node Texts Length: {len(self.tokenizer.encode(node_texts))}, Summarized Text Length: {len(self.tokenizer.encode(summarized_text))}"
-            )
+            # # 打印详细信息
+            # print(
+            #     f"DEBUG CHECK -> Type: {type(obj)}, "
+            #     f"Length: {len(obj) if obj is not None else 'N/A'}, "
+            #     f"Value: {repr(obj)[:100]}..."
+            # )  # 只显示前100个字符防止刷屏
+            # logging.info(
+            #     f"Node Texts Length: {len(self.tokenizer.encode(node_texts))}, Summarized Text Length: {len(self.tokenizer.encode(summarized_text))}"
+            # )
 
             # create new parent node with child nodes the cluster
             __, new_parent_node = self.create_node(
