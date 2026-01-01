@@ -33,4 +33,4 @@ assertion.log
 *.db
 
 # my tests
-simple_rag_clustering/
+test_*

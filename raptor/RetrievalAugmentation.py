@@ -2,6 +2,8 @@ import logging
 import pickle
 
 from .cluster_tree_builder import ClusterTreeBuilder, ClusterTreeConfig
+from .kmeans_tree_builder import KMeansTreeBuilder, KMeansTreeConfig
+from .kmeans_retriever import KMeansRetriever, KMeansRetrieverConfig
 from .EmbeddingModels import BaseEmbeddingModel
 from .QAModels import BaseQAModel, GPT3TurboQAModel, QwenQAModel, UnifiedQAModel
 from .SummarizationModels import BaseSummarizationModel
@@ -10,8 +12,16 @@ from .tree_retriever import TreeRetriever, TreeRetrieverConfig
 from .tree_structures import Node, Tree
 
 # Define a dictionary to map supported tree builders to their respective configs
-# key is string, value is a tuple of CLASS (TreeBuilderClass, TreeBuilderConfigClass)
-supported_tree_builders = {"cluster": (ClusterTreeBuilder, ClusterTreeConfig)}
+supported_tree_builders = {
+    "cluster": (ClusterTreeBuilder, ClusterTreeConfig),
+    "kmeans": (KMeansTreeBuilder, KMeansTreeConfig),
+}
+
+# Define a dictionary to map supported retrievers to their respective configs
+supported_retrievers = {
+    "tree": (TreeRetriever, TreeRetrieverConfig),
+    "kmeans": (KMeansRetriever, KMeansRetrieverConfig),
+}
 
 logging.basicConfig(format="%(asctime)s - %(message)s", level=logging.INFO)
 
@@ -29,6 +39,7 @@ class RetrievalAugmentationConfig:
         # global summarization model
         summarization_model=None,
         tree_builder_type="cluster",
+        tree_retriever_type="tree",  # Default to tree retriever
         # New parameters for TreeRetrieverConfig and TreeBuilderConfig
         # TreeRetrieverConfig arguments
         tr_tokenizer=None,
@@ -41,6 +52,7 @@ class RetrievalAugmentationConfig:
         tr_embedding_model=None,
         tr_num_layers=None,
         tr_start_layer=None,
+        tr_top_k_clusters=3,  # specifically for KMeansRetriever
         # TreeBuilderConfig arguments
         tb_tokenizer=None,
         tb_max_tokens=100,
@@ -55,11 +67,17 @@ class RetrievalAugmentationConfig:
         tb_embedding_models=None,
         # which embedding to use for clustering in tree builder
         tb_cluster_embedding_model="BGEM3",
+        tb_n_clusters=5,  # specifically for KMeansTreeBuilder
     ):
         # Validate tree_builder_type
         if tree_builder_type not in supported_tree_builders:
             raise ValueError(
                 f"tree_builder_type must be one of {list(supported_tree_builders.keys())}"
+            )
+
+        if tree_retriever_type not in supported_retrievers:
+            raise ValueError(
+                f"tree_retriever_type must be one of {list(supported_retrievers.keys())}"
             )
 
         print("Start initializing RetrievalAugmentation...")
@@ -121,19 +139,23 @@ class RetrievalAugmentationConfig:
         # the same arguments are passed to different TreeBuilderConfig classes
         print("Setting TreeBuilderConfig...")
         if tree_builder_config is None:
-            tree_builder_config = tree_builder_config_class(
-                tokenizer=tb_tokenizer,
-                max_tokens=tb_max_tokens,
-                num_layers=tb_num_layers,
-                threshold=tb_threshold,
-                top_k=tb_top_k,
-                selection_mode=tb_selection_mode,
-                summarization_length=tb_summarization_length,
-                # treebuilder use 3 embedding models
-                summarization_model=tb_summarization_model,
-                embedding_models=tb_embedding_models,
-                cluster_embedding_model=tb_cluster_embedding_model,
-            )
+            # Prepare kwargs for config init
+            config_kwargs = {
+                "tokenizer": tb_tokenizer,
+                "max_tokens": tb_max_tokens,
+                "num_layers": tb_num_layers,
+                "threshold": tb_threshold,
+                "top_k": tb_top_k,
+                "selection_mode": tb_selection_mode,
+                "summarization_length": tb_summarization_length,
+                "summarization_model": tb_summarization_model,
+                "embedding_models": tb_embedding_models,
+                "cluster_embedding_model": tb_cluster_embedding_model,
+            }
+            if tree_builder_type == "kmeans":
+                config_kwargs["n_clusters"] = tb_n_clusters
+
+            tree_builder_config = tree_builder_config_class(**config_kwargs)
 
         elif not isinstance(tree_builder_config, tree_builder_config_class):
             raise ValueError(
@@ -142,21 +164,29 @@ class RetrievalAugmentationConfig:
 
         # Set TreeRetrieverConfig
         print("Setting TreeRetrieverConfig...")
+        retriever_class, retriever_config_class = supported_retrievers[
+            tree_retriever_type
+        ]
+
         if tree_retriever_config is None:
-            tree_retriever_config = TreeRetrieverConfig(
-                tokenizer=tr_tokenizer,
-                threshold=tr_threshold,
-                top_k=tr_top_k,
-                selection_mode=tr_selection_mode,
-                # tree retriever use 2 embedding models
-                context_embedding_model=tr_context_embedding_model,
-                embedding_model=tr_embedding_model,
-                num_layers=tr_num_layers,
-                start_layer=tr_start_layer,
-            )
-        elif not isinstance(tree_retriever_config, TreeRetrieverConfig):
+            config_kwargs = {
+                "tokenizer": tr_tokenizer,
+                "threshold": tr_threshold,
+                "top_k": tr_top_k,
+                "selection_mode": tr_selection_mode,
+                "context_embedding_model": tr_context_embedding_model,
+                "embedding_model": tr_embedding_model,
+                "num_layers": tr_num_layers,
+                "start_layer": tr_start_layer,
+            }
+            if tree_retriever_type == "kmeans":
+                config_kwargs["top_k_clusters"] = tr_top_k_clusters
+
+            tree_retriever_config = retriever_config_class(**config_kwargs)
+
+        elif not isinstance(tree_retriever_config, retriever_config_class):
             raise ValueError(
-                "tree_retriever_config must be an instance of TreeRetrieverConfig"
+                f"tree_retriever_config must be an instance of {retriever_config_class}"
             )
 
         # Assign the created configurations to the instance
@@ -165,6 +195,7 @@ class RetrievalAugmentationConfig:
         self.tree_retriever_config = tree_retriever_config
         self.qa_model = qa_model or QwenQAModel()
         self.tree_builder_type = tree_builder_type
+        self.tree_retriever_type = tree_retriever_type
 
     def log_config(self):
         config_summary = """
@@ -175,11 +206,13 @@ class RetrievalAugmentationConfig:
             
             QA Model: {qa_model}
             Tree Builder Type: {tree_builder_type}
+            Tree Retriever Type: {tree_retriever_type}
         """.format(
             tree_builder_config=self.tree_builder_config.log_config(),
             tree_retriever_config=self.tree_retriever_config.log_config(),
             qa_model=self.qa_model,
             tree_builder_type=self.tree_builder_type,
+            tree_retriever_type=self.tree_retriever_type,
         )
         return config_summary
 
@@ -227,8 +260,10 @@ class RetrievalAugmentation:
         self.tree_retriever_config = config.tree_retriever_config
         self.qa_model = config.qa_model
 
+        self.retriever_class = supported_retrievers[config.tree_retriever_type][0]
+
         if self.tree is not None:
-            self.retriever = TreeRetriever(self.tree_retriever_config, self.tree)
+            self.retriever = self.retriever_class(self.tree_retriever_config, self.tree)
         else:
             self.retriever = None
 
@@ -239,9 +274,9 @@ class RetrievalAugmentation:
     def add_documents(self, docs):
         """
         Adds documents to the tree and creates a TreeRetriever instance.
-        
+
         Step 1 (Tree Building Entry): This is the high-level entry point.
-        It delegates the heavy lifting of building the hierarchical tree 
+        It delegates the heavy lifting of building the hierarchical tree
         from the raw text to the configured TreeBuilder (e.g., ClusterTreeBuilder).
         """
         if self.tree is not None:
@@ -256,7 +291,7 @@ class RetrievalAugmentation:
         # 1. Splitting text into chunks (Leaf Nodes)
         # 2. Recursively clustering and summarizing (Higher-level Nodes)
         self.tree = self.tree_builder.build_from_text(text=docs)
-        self.retriever = TreeRetriever(self.tree_retriever_config, self.tree)
+        self.retriever = self.retriever_class(self.tree_retriever_config, self.tree)
 
     def retrieve(
         self,

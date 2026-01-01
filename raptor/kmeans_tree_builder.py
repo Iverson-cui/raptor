@@ -1,0 +1,121 @@
+import logging
+import numpy as np
+from typing import Dict, List, Set
+from sklearn.cluster import KMeans
+
+from .tree_builder import TreeBuilder, TreeBuilderConfig
+from .tree_structures import Node, Tree
+from .utils import get_embeddings, get_node_list
+
+logging.basicConfig(format="%(asctime)s - %(message)s", level=logging.INFO)
+
+
+class KMeansTreeConfig(TreeBuilderConfig):
+    """
+    config for KMeans Tree Builder
+
+    :var Clusters: Description
+    """
+
+    def __init__(self, n_clusters=5, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # n_clusters: number of clusters to form
+        self.n_clusters = n_clusters
+
+    def log_config(self):
+        base_summary = super().log_config()
+        kmeans_summary = f"""
+        N Clusters: {self.n_clusters}
+        """
+        return base_summary + kmeans_summary
+
+
+class KMeansTreeBuilder(TreeBuilder):
+    """
+    Docstring for KMeansTreeBuilder
+    """
+
+    def __init__(self, config) -> None:
+        super().__init__(config)
+        if not isinstance(config, KMeansTreeConfig):
+            raise ValueError("config must be an instance of KMeansTreeConfig")
+        self.n_clusters = config.n_clusters
+        logging.info(
+            f"Successfully initialized KMeansTreeBuilder with Config {config.log_config()}"
+        )
+
+    def construct_tree(
+        self,
+        current_level_nodes: Dict[int, Node],
+        all_tree_nodes: Dict[int, Node],
+        layer_to_nodes: Dict[int, List[Node]],
+        use_multithreading: bool = False,
+    ) -> Dict[int, Node]:
+
+        logging.info("Using KMeans TreeBuilder")
+
+        # Get nodes and their embeddings
+        node_list = get_node_list(current_level_nodes)
+        if not node_list:
+            return {}
+
+        embeddings = get_embeddings(node_list, self.cluster_embedding_model)
+
+        # Check if we have enough samples for k-means
+        n_samples = len(embeddings)
+        n_clusters = min(self.n_clusters, n_samples)
+
+        if n_samples == 0:
+            return {}
+
+        # Perform KMeans clustering
+        # n_clusters means how many clusters to create from all nodes
+        # n_init means Running K-Means 10 times with different initial centroid positions and pick the best result (helps avoid local minima)
+        # random_state is the seed for reproducibility
+        # this line is for object instantiation
+        kmeans = KMeans(n_clusters=n_clusters, n_init=10, random_state=42)
+        # this line is the real clustering
+        kmeans.fit(embeddings)
+
+        # labels is a list of int representing which cluster each sample belongs to
+        # e.g. [0,0,1,2,1,0,...]
+        labels = kmeans.labels_
+        # centroids is a 2D array where each row is the centroid of a cluster
+        centroids = kmeans.cluster_centers_
+
+        new_level_nodes = {}
+        next_node_index = len(all_tree_nodes)  # Start indexing after existing nodes
+
+        # Create parent nodes for each cluster
+        for i in range(n_clusters):
+            # Identify children for this cluster
+            # node_list is sorted by index (from get_node_list), so we can map back
+            # find which leaf nodes belong to this cluster
+            children_indices = {
+                node_list[j].index for j in range(n_samples) if labels[j] == i
+            }
+
+            # Create parent node
+            # Text is a placeholder that doesn't affect the cluster embedding vectors
+            # embedding vectors are directly retrieved from centroids[i]
+            parent_node = Node(
+                text=f"Cluster {i} Centroid",
+                index=next_node_index,
+                children=children_indices,
+                embeddings={self.cluster_embedding_model: centroids[i].tolist()},
+            )
+
+            new_level_nodes[next_node_index] = parent_node
+            next_node_index += 1
+
+        # Update layer_to_nodes
+        # Layer 0 (leaves) is already there. Layer 1 (roots/clusters) is what we just built.
+        layer_to_nodes[1] = list(new_level_nodes.values())
+
+        # Update all_tree_nodes
+        all_tree_nodes.update(new_level_nodes)
+
+        # Set num_layers to 1 (meaning 1 layer of abstraction/clustering on top of leaves)
+        self.num_layers = 1
+
+        return new_level_nodes
