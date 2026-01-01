@@ -86,13 +86,13 @@ class ClusterTreeBuilder(TreeBuilder):
             cluster, new_level_nodes, next_node_index, summarization_length, lock
         ):
             """
-            Docstring for process_cluster
+            Given a list of nodes in a cluster, summarize their texts and create a new parent node.
 
-            :param cluster: List[Node] that we want to summarize into a parent node
-            :param new_level_nodes: a shared dictionary to store newly created parent nodes
-            :param next_node_index: The index to assign to the newly created parent node
-            :param summarization_length: maximum tokens for summarization
-            :param lock: Ensures thread-safe access to new_level_nodes when multithreading is enabled
+             :param cluster: List[Node] that we want to summarize into a parent node
+             :param new_level_nodes: a shared dictionary to store newly created parent nodes
+             :param next_node_index: The index to assign to the newly created parent node
+             :param summarization_length: maximum tokens for summarization
+             :param lock: Ensures thread-safe access to new_level_nodes when multithreading is enabled
             """
             # concatenate all texts from the cluster into node_texts for summarization
             node_texts = get_text(cluster)
@@ -145,6 +145,7 @@ class ClusterTreeBuilder(TreeBuilder):
                 break
 
             # Clustering step: Groups semantically similar nodes together
+            # In the paper it adopts UMAP and GMM methods
             clusters = self.clustering_algorithm.perform_clustering(
                 node_list_current_layer,
                 self.cluster_embedding_model,

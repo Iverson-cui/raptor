@@ -49,6 +49,7 @@ class TreeBuilderConfig:
             tokenizer = tiktoken.get_encoding("cl100k_base")
         self.tokenizer = tokenizer
 
+        # chunk size=100, it's short maybe because summarization comes later.
         if max_tokens is None:
             max_tokens = 100
         if not isinstance(max_tokens, int) or max_tokens < 1:
@@ -192,6 +193,7 @@ class TreeBuilder:
             children_indices = set()
 
         # dictionary whose keys are model names and values are list[float]
+        # All nodes are born with embeddings from all embedding models
         embeddings = {
             model_name: model.create_embedding(text)
             for model_name, model in self.embedding_models.items()
@@ -289,6 +291,8 @@ class TreeBuilder:
 
         logging.info("Creating Leaf Nodes")
 
+        # create the leaf nodes using multithreading if specified
+        # ONLY leaf nodes are created here
         if use_multithreading:
             leaf_nodes = self.multithreaded_create_leaf_nodes(chunks)
         else:

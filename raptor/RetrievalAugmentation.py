@@ -316,7 +316,7 @@ class RetrievalAugmentation:
             question (str): The question to answer.
             start_layer (int): The layer to start from. Defaults to self.start_layer.
             num_layers (int): The number of layers to traverse. Defaults to self.num_layers.
-            max_tokens (int): The maximum number of tokens. Defaults to 3500.
+            max_tokens (int): The maximum number of tokens. Defaults to 3500. This means that the context provided to answer a question will not exceed max_tokens.
             use_all_information (bool): Whether to retrieve information from all nodes. Defaults to False.
 
         Returns:

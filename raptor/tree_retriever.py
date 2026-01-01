@@ -127,9 +127,11 @@ class TreeRetriever(BaseRetriever):
             )
 
         self.tree = tree
+        # if not specified, retrieve nodes from all of the layers
         self.num_layers = (
             config.num_layers if config.num_layers is not None else tree.num_layers + 1
         )
+        # if not specified, start from the top layer (the root layer)
         self.start_layer = (
             config.start_layer if config.start_layer is not None else tree.num_layers
         )
@@ -169,7 +171,7 @@ class TreeRetriever(BaseRetriever):
 
         Args:
             query (str): The query text.
-            max_tokens (int): The maximum number of tokens.
+            max_tokens (int): The maximum number of tokens. Even if we want top-32 nodes, the tokens returned is bounded by max_tokens.
 
         Returns:
             str: The context created using the most relevant nodes.
@@ -182,14 +184,18 @@ class TreeRetriever(BaseRetriever):
         # search through all nodes in the tree
         node_list = get_node_list(self.tree.all_nodes)
 
+        # embeddings contain the embeddings of all nodes at the start layer
         embeddings = get_embeddings(node_list, self.context_embedding_model)
 
+        # distances contain the distances between the query embedding and all node embeddings
+        # distances has the same length as embeddings
         distances = distances_from_embeddings(query_embedding, embeddings)
 
+        # sort the distances and return the indices of ascending order
         indices = indices_of_nearest_neighbors_from_distances(distances)
 
         total_tokens = 0
-        # choose top-k if total tokens doesn't exceed mat_tokens
+        # choose top-k if total tokens doesn't exceed max_tokens
         for idx in indices[:top_k]:
 
             node = node_list[idx]
@@ -202,6 +208,7 @@ class TreeRetriever(BaseRetriever):
             selected_nodes.append(node)
             total_tokens += node_tokens
 
+        # context concatenate all of the node's contexts together
         context = get_text(selected_nodes)
         return selected_nodes, context
 
@@ -277,6 +284,7 @@ class TreeRetriever(BaseRetriever):
     ) -> str:
         """
         Queries the tree and returns the most relevant information.
+        This retrieve function starts from start_layer, and goes down layer by layer for num_layers.
 
         Args:
             query (str): The query text.
@@ -299,6 +307,7 @@ class TreeRetriever(BaseRetriever):
             raise ValueError("collapse_tree must be a boolean")
 
         # Set defaults
+        # defaults to retrieving from all of nodes in the tree
         start_layer = self.start_layer if start_layer is None else start_layer
         num_layers = self.num_layers if num_layers is None else num_layers
 
