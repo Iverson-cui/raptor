@@ -31,6 +31,3 @@ finetuning_ckpts/
 assertion.log
 *.log
 *.db
-
-# my tests
-test_*
