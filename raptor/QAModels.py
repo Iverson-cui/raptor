@@ -234,7 +234,12 @@ class DeepSeekQAModel(BaseQAModel):
     For decoder-only models, AutoModelForCausalLM, AutoTokenizer are needed.
     """
 
-    def __init__(self, model_path="DeepSeek-V2-Lite-Chat"):
+    def __init__(
+        self,
+        model_path="/opt/pretrained_models/DeepSeek-V2-Lite-Chat",
+        device_map="auto",
+        max_memory=None,
+    ):
         """
         Args:
             model_path (str): Path to the model folder on your server.
@@ -257,9 +262,10 @@ class DeepSeekQAModel(BaseQAModel):
         # A6000 supports bfloat16 which is more stable for training/inference than float16
         self.model = AutoModelForCausalLM.from_pretrained(
             model_path,
+            device_map=device_map,
+            max_memory=max_memory,
             trust_remote_code=True,
             torch_dtype=torch.bfloat16,
-            device_map="auto",
         )
         self.model.eval()  # Set to evaluation mode
 
@@ -268,7 +274,7 @@ class DeepSeekQAModel(BaseQAModel):
         messages = [
             {
                 "role": "system",
-                "content": "You are a helpful assistant. Answer strictly based on the provided context.",
+                "content": "You are a helpful assistant. Answer strictly based only on the provided context.",
             },
             {
                 "role": "user",
