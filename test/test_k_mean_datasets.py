@@ -170,7 +170,10 @@ def evaluate_k_means_on_dataset(
 
         # 2. Store eval item if needed
         if len(eval_items) < num_eval_questions_target:
-            eval_items.append(process_item_fn(item))
+            processed_item = process_item_fn(item)
+            # Only add if there is at least one ground truth answer to avoid max() error in metrics
+            if processed_item["answers"]["text"]:
+                eval_items.append(processed_item)
 
         # 3. Stop condition
         if local_test:
