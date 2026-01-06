@@ -141,7 +141,7 @@ def evaluate_k_means_on_dataset(
         }
         embedding_device = "cuda:3"
     else:
-        embedding_device = "cpu"
+        embedding_device = "mps"
 
     # Define slicing parameters
     if local_test:
@@ -198,7 +198,7 @@ def evaluate_k_means_on_dataset(
     if local_test:
         logging.info("Initializing LOCAL models: UnifiedQA (QA) & SBert (Embedding)...")
         qa_model = UnifiedQAModel()
-        embedding_model = SBertEmbeddingModel()
+        embedding_model = SBertEmbeddingModel(device=embedding_device)
     else:
         logging.info(
             f"Initializing SERVER models: {model_name} (QA) & SBert (Embedding)..."
