@@ -47,10 +47,6 @@ class SBertEmbeddingModel(BaseEmbeddingModel):
         return self.model.encode(text)
 
 
-from sentence_transformers import SentenceTransformer
-import torch
-
-
 class SBertEmbeddingModel(BaseEmbeddingModel):
     def __init__(
         self,

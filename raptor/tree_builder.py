@@ -280,7 +280,7 @@ class TreeBuilder:
 
         return leaf_nodes
 
-    def build_from_text(self, text: str, use_multithreading: bool = False) -> Tree:
+    def build_from_text(self, text: str, use_multithreading: bool = True) -> Tree:
         """Builds a golden tree from the input text, optionally using multithreading.
         
         Step 2 (Leaf Node Creation):

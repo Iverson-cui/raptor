@@ -49,7 +49,7 @@ class KMeansTreeBuilder(TreeBuilder):
         current_level_nodes: Dict[int, Node],
         all_tree_nodes: Dict[int, Node],
         layer_to_nodes: Dict[int, List[Node]],
-        use_multithreading: bool = False,
+        use_multithreading: bool = True,
     ) -> Dict[int, Node]:
 
         logging.info("Using KMeans TreeBuilder")
