@@ -160,5 +160,6 @@ class BGEM3Model(BaseEmbeddingModel):
         return self.model.encode(
             text,
             normalize_embeddings=True,  # Critical for Cosine Similarity
-            batch_size=1,
+            batch_size=512,
+            show_progress_bar=True,
         )
