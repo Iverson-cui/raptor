@@ -201,7 +201,7 @@ def evaluate_k_means_on_dataset(
         embedding_model = SBertEmbeddingModel()
     else:
         logging.info(
-            f"Initializing SERVER models: {model_name} (QA) & BGEM3 (Embedding)..."
+            f"Initializing SERVER models: {model_name} (QA) & SBert (Embedding)..."
         )
 
         if model_name.lower() == "qwen":
@@ -213,6 +213,10 @@ def evaluate_k_means_on_dataset(
             qa_model = QwenQAModel(max_memory=qa_memory_map, device_map="auto")
 
         embedding_model = BGEM3Model(device=embedding_device)
+        # embedding_model = SBertEmbeddingModel(
+        #     device=embedding_device,
+        #     target_gpus=["cuda:3", "cuda:4", "cuda:5", "cuda:6"],
+        # )
 
     # Configure for K-Means
     # Configure parameters based on mode and dataset

@@ -294,6 +294,7 @@ class TreeBuilder:
         # create the leaf nodes using multithreading if specified
         # ONLY leaf nodes are created here
         if use_multithreading:
+            logging.info("Using Multithreading for Leaf Node Creation")
             leaf_nodes = self.multithreaded_create_leaf_nodes(chunks)
         else:
             leaf_nodes = {}

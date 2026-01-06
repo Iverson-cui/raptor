@@ -2,6 +2,7 @@ import logging
 from abc import ABC, abstractmethod
 
 from openai import OpenAI
+from scipy.__config__ import show
 from sentence_transformers import SentenceTransformer
 from tenacity import retry, stop_after_attempt, wait_random_exponential
 
@@ -44,6 +45,80 @@ class SBertEmbeddingModel(BaseEmbeddingModel):
 
     def create_embedding(self, text):
         return self.model.encode(text)
+
+
+from sentence_transformers import SentenceTransformer
+import torch
+
+
+class SBertEmbeddingModel(BaseEmbeddingModel):
+    def __init__(
+        self,
+        model_name="nomic-ai/modernbert-embed-base",
+        device="cuda:3",  # Changed default to match your likely usage
+        target_gpus=["cuda:3", "cuda:4", "cuda:5", "cuda:6"],
+    ):
+        print(f"Loading Master Model on {device}...")
+        self.device = device
+
+        # 1. Load Manager
+        self.model = SentenceTransformer(
+            model_name, trust_remote_code=True, device=self.device
+        )
+        # ModernBERT supports 8192, but we can set a soft limit if desired
+        self.model.max_seq_length = 2048
+
+        # 2. Start Pool
+        print(f"Starting Worker Pool on: {target_gpus}")
+        try:
+            self.pool = self.model.start_multi_process_pool(target_devices=target_gpus)
+        except Exception as e:
+            print(f"❌ Failed to start multi-GPU pool: {e}")
+            print("Fallback: Code will run on single device (slow).")
+            self.pool = None
+
+    def create_embedding(self, text, is_query=False):
+        # Define Prefix
+        prefix = "search_query: " if is_query else "search_document: "
+
+        # Case A: Single String (User Query)
+        if isinstance(text, str):
+            return self.model.encode(f"{prefix}{text}", normalize_embeddings=True)
+
+        # Case B: List of Strings (Bulk Indexing)
+        elif isinstance(text, list):
+            # Filter and prefix
+            clean_texts = [
+                f"{prefix}{t}" for t in text if isinstance(t, str) and len(t) > 0
+            ]
+
+            if not clean_texts:
+                return None
+
+            # Check if pool is active
+            if self.pool:
+                return self.model.encode(
+                    clean_texts,
+                    pool=self.pool,
+                    batch_size=128,  # 128 per GPU
+                    normalize_embeddings=True,
+                    show_progress_bar=True,
+                )
+            else:
+                # Fallback if pool failed to start
+                print("⚠️ Warning: Running large batch on single GPU!")
+                return self.model.encode(
+                    clean_texts,
+                    batch_size=128,
+                    normalize_embeddings=True,
+                    show_progress_bar=True,
+                )
+
+        return []  # Fallback empty list
+
+    def close(self):
+        if self.pool:
+            self.model.stop_multi_process_pool(self.pool)
 
 
 class MpnetBaseCosModel(BaseEmbeddingModel):
