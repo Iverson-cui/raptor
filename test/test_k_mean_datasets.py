@@ -212,7 +212,8 @@ def evaluate_k_means_on_dataset(
             logging.warning(f"Unknown server model {model_name}, defaulting to Qwen.")
             qa_model = QwenQAModel(max_memory=qa_memory_map, device_map="auto")
 
-        embedding_model = BGEM3Model(device=embedding_device)
+        embedding_model = SBertEmbeddingModel(device=embedding_device)
+        # embedding_model = BGEM3Model(device=embedding_device)
         # embedding_model = SBertEmbeddingModel(
         #     device=embedding_device,
         #     target_gpus=["cuda:3", "cuda:4", "cuda:5", "cuda:6"],
