@@ -366,9 +366,48 @@ class QwenQAModel(BaseQAModel):
         messages = [
             {
                 "role": "system",
-                "content": "You are a helpful assistant. Answer the question using only the context provided.",
+                "content": "You are a helpful assistant. Answer the question strictly using only the provided context. If the answer cannot be found in the context, concisely state that the information is not available.",
             },
             {"role": "user", "content": f"Context: {context}\n\nQuestion: {question}"},
+        ]
+
+        text = self.tokenizer.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True
+        )
+
+        model_inputs = self.tokenizer([text], return_tensors="pt").to(self.device)
+
+        with torch.no_grad():
+            generated_ids = self.model.generate(
+                **model_inputs,
+                max_new_tokens=max_new_tokens,
+                temperature=0.1,
+                do_sample=True,
+            )
+
+        # Slice output to remove input tokens
+        generated_ids = [
+            output_ids[len(input_ids) :]
+            for input_ids, output_ids in zip(model_inputs.input_ids, generated_ids)
+        ]
+
+        response = self.tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[
+            0
+        ]
+        return response.strip()
+
+    def answer_question_without_contexts(self, context, question, max_new_tokens=512):
+        """
+        comparative function without contexts
+
+        """
+        # Standard ChatML format for Qwen
+        messages = [
+            {
+                "role": "system",
+                "content": "You are a helpful assistant. Answer the question strictly using only the provided context. If the answer cannot be found in the context, concisely state that the information is not available.",
+            },
+            {"role": "user", "content": f"Context: {None}\n\nQuestion: {question}"},
         ]
 
         text = self.tokenizer.apply_chat_template(
