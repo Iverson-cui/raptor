@@ -1,7 +1,7 @@
 import logging
 import numpy as np
 from typing import Dict, List, Set
-from sklearn.cluster import KMeans
+import faiss
 
 from .tree_builder import TreeBuilder, TreeBuilderConfig
 from .tree_structures import Node, Tree
@@ -52,7 +52,7 @@ class KMeansTreeBuilder(TreeBuilder):
         use_multithreading: bool = True,
     ) -> Dict[int, Node]:
 
-        logging.info("Using KMeans TreeBuilder")
+        logging.info("Using KMeans TreeBuilder (Faiss Accelerated)")
 
         # Get nodes and their embeddings
         node_list = get_node_list(current_level_nodes)
@@ -61,27 +61,53 @@ class KMeansTreeBuilder(TreeBuilder):
 
         embeddings = get_embeddings(node_list, self.cluster_embedding_model)
 
+        # Convert to numpy float32 for Faiss
+        embeddings_np = np.array(embeddings, dtype=np.float32)
+        n_samples, d = embeddings_np.shape
+
         # Check if we have enough samples for k-means
-        n_samples = len(embeddings)
         n_clusters = min(self.n_clusters, n_samples)
 
         if n_samples == 0:
             return {}
 
-        # Perform KMeans clustering
-        # n_clusters means how many clusters to create from all nodes
-        # n_init means Running K-Means 10 times with different initial centroid positions and pick the best result (helps avoid local minima)
-        # random_state is the seed for reproducibility
-        # this line is for object instantiation
-        kmeans = KMeans(n_clusters=n_clusters, n_init=10, random_state=42)
-        # this line is the real clustering
-        kmeans.fit(embeddings)
+        # Perform KMeans clustering using Faiss
+        # spherical=True is recommended for Cosine Similarity (normalized embeddings)
+        use_gpu = faiss.get_num_gpus() if (faiss.get_num_gpus() > 0) else 0
 
-        # labels is a list of int representing which cluster each sample belongs to
-        # e.g. [0,0,1,2,1,0,...]
-        labels = kmeans.labels_
-        # centroids is a 2D array where each row is the centroid of a cluster
-        centroids = kmeans.cluster_centers_
+        logging.info(
+            f"Starting Faiss KMeans (GPU={use_gpu}, spherical=True, k={n_clusters})"
+        )
+
+        # d: dimension of the vectors to cluster
+        # k: number of clusters
+        # spherical means normalize vectors to unit length before clustering
+        kmeans = faiss.Kmeans(
+            d=d,
+            k=n_clusters,
+            niter=20,
+            nredo=1,
+            verbose=True,
+            spherical=True,
+            seed=42,
+            gpu=use_gpu,
+        )
+
+        kmeans.train(embeddings_np)
+
+        # Get cluster centers (centroids)
+        # centroids is a numpy array of shape (n_clusters, d)
+        centroids = kmeans.centroids
+
+        # After kmeans.train, we only get n_clusters cluster centroids
+        # BUT we are not assigning every embedding to a cluster yet.
+        # To do that, first We search the index (centroids) to find the nearest cluster for each point.
+        # index.search returns (distances, indices)
+        # indices contains the cluster ID for each sample
+        _, labels = kmeans.index.search(embeddings_np, 1)
+        # flatten the cluster index to get 1d array
+        # this labels is used later to build cluster nodes
+        labels = labels.flatten()
 
         new_level_nodes = {}
         next_node_index = len(all_tree_nodes)  # Start indexing after existing nodes
@@ -94,6 +120,10 @@ class KMeansTreeBuilder(TreeBuilder):
             children_indices = {
                 node_list[j].index for j in range(n_samples) if labels[j] == i
             }
+
+            # If a cluster is empty (rare but possible in K-means), skip it
+            if not children_indices:
+                continue
 
             # Create parent node
             # Text is a placeholder that doesn't affect the cluster embedding vectors
