@@ -35,68 +35,78 @@ def split_text(
         List[str]: A list of text chunks.
     """
     # Split the text into sentences using multiple delimiters
+    # This is stage 1 chop
     delimiters = [".", "!", "?", "\n"]
     regex_pattern = "|".join(map(re.escape, delimiters))
     sentences = re.split(regex_pattern, text)
-    
+
     # Calculate the number of tokens for each sentence
+    # n_tokens list has the same length as sentences list
     n_tokens = [len(tokenizer.encode(" " + sentence)) for sentence in sentences]
-    
+
     chunks = []
     current_chunk = []
     current_length = 0
-    
+
     for sentence, token_count in zip(sentences, n_tokens):
         # If the sentence is empty or consists only of whitespace, skip it
         if not sentence.strip():
             continue
-        
-        # If the sentence is too long, split it into smaller parts
+
+        # If a single sentence in the sentences list is too long, split it into smaller parts
         if token_count > max_tokens:
+            # stage 2 chop, using softer punctuations
             sub_sentences = re.split(r"[,;:]", sentence)
-            
+
             # there is no need to keep empty os only-spaced strings
             # since spaces will be inserted in the beginning of the full string
             # and in between the string in the sub_chuk list
             filtered_sub_sentences = [sub.strip() for sub in sub_sentences if sub.strip() != ""]
             sub_token_counts = [len(tokenizer.encode(" " + sub_sentence)) for sub_sentence in filtered_sub_sentences]
-            
+
             sub_chunk = []
             sub_length = 0
-            
+
+            # TODO: if sub-sentences is longer than max_tokens, it would still be added as a chunk.
             for sub_sentence, sub_token_count in zip(filtered_sub_sentences, sub_token_counts):
                 if sub_length + sub_token_count > max_tokens:
-                    
+
                     # if the phrase does not have sub_sentences, it would create an empty chunk
                     # this big phrase would be added anyways in the next chunk append
                     if sub_chunk:
                         chunks.append(" ".join(sub_chunk))
                         sub_chunk = sub_chunk[-overlap:] if overlap > 0 else []
                         sub_length = sum(sub_token_counts[max(0, len(sub_chunk) - overlap):len(sub_chunk)])
-                
+
                 sub_chunk.append(sub_sentence)
                 sub_length += sub_token_count
-            
+
             if sub_chunk:
                 chunks.append(" ".join(sub_chunk))
-        
+
         # If adding the sentence to the current chunk exceeds the max tokens, start a new chunk
         elif current_length + token_count > max_tokens:
+            # append the current_chunk to chunks
             chunks.append(" ".join(current_chunk))
+            # overlap logic
+            # if overlap is 0, current_chunk becomes empty
+            # this overlap deals with SENTENCES! So if overlap is 1, it's the last sentence that overlaps
+            # TODO: the logic here is said to have bugs. But if overlap=0, nothing breaks
             current_chunk = current_chunk[-overlap:] if overlap > 0 else []
+            # update current length based on the overlapped current_chunk
             current_length = sum(n_tokens[max(0, len(current_chunk) - overlap):len(current_chunk)])
             current_chunk.append(sentence)
             current_length += token_count
-        
-        # Otherwise, add the sentence to the current chunk
+
+        # Otherwise, add the sentence to the current chunk and update current length
         else:
             current_chunk.append(sentence)
             current_length += token_count
-    
+
     # Add the last chunk if it's not empty
     if current_chunk:
         chunks.append(" ".join(current_chunk))
-    
+
     return chunks
 
 

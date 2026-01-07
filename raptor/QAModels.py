@@ -274,11 +274,47 @@ class DeepSeekQAModel(BaseQAModel):
         messages = [
             {
                 "role": "system",
-                "content": "You are a helpful assistant. Answer strictly based only on the provided context.",
+                "content": "You are a helpful assistant. Answer the question strictly using only the provided context. If the answer cannot be found in the context, concisely state that the information is not available.",
             },
             {
                 "role": "user",
                 "content": f"Context:\n{context}\n\nQuestion:\n{question}",
+            },
+        ]
+
+        # Apply chat template (handles the specific special tokens for DeepSeek)
+        input_text = self.tokenizer.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True
+        )
+
+        inputs = self.tokenizer(input_text, return_tensors="pt").to(self.device)
+
+        with torch.no_grad():
+            outputs = self.model.generate(
+                **inputs,
+                max_new_tokens=max_new_tokens,
+                temperature=0.1,  # Low temp for factual QA
+                top_p=0.9,
+                do_sample=True,
+                eos_token_id=self.tokenizer.eos_token_id,
+            )
+
+        # Decode response (skipping the input prompt)
+        response = self.tokenizer.decode(
+            outputs[0][len(inputs.input_ids[0]) :], skip_special_tokens=True
+        )
+        return response.strip()
+
+    def answer_question_without_contexts(self, context, question, max_new_tokens=512):
+        # DeepSeek V2 specific system prompt structure
+        messages = [
+            {
+                "role": "system",
+                "content": "You are a helpful assistant. Answer the question strictly using only the provided context. If the answer cannot be found in the context, concisely state that the information is not available.",
+            },
+            {
+                "role": "user",
+                "content": f"Context:\n{None}\n\nQuestion:\n{question}",
             },
         ]
 
