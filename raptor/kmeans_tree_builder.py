@@ -82,11 +82,13 @@ class KMeansTreeBuilder(TreeBuilder):
         # d: dimension of the vectors to cluster
         # k: number of clusters
         # spherical means normalize vectors to unit length before clustering
+        # nredo: run it multiple times and keep the best
+        # gpu=True means using all of gpus available, gpu=3 means using only 3 gpus.
         kmeans = faiss.Kmeans(
             d=d,
             k=n_clusters,
             niter=20,
-            nredo=1,
+            nredo=3,
             verbose=True,
             spherical=True,
             seed=42,

@@ -93,6 +93,9 @@ def evaluate_k_means_on_dataset(
     model_name="qwen",
     local_test=True,
     tb_max_tokens=None,
+    n_clusters=None,
+    tr_top_k_clusters=None,
+    tr_top_k=None,
     print_summary=True,
     answer_without_context=False,
 ):
@@ -228,29 +231,35 @@ def evaluate_k_means_on_dataset(
     # Configure parameters based on mode and dataset
     if local_test:
         default_tokens = 200
-        n_clusters = 5
-        tr_top_k_clusters = 2
-        tr_top_k = 5
+        default_n_clusters = 5
+        default_tr_top_k_clusters = 2
+        default_tr_top_k = 5
     else:
         if dataset_name == "squad":
             default_tokens = 256
-            n_clusters = 210
-            tr_top_k_clusters = 15
-            tr_top_k = 10
+            default_n_clusters = 210
+            default_tr_top_k_clusters = 15
+            default_tr_top_k = 10
         elif dataset_name in ["hotpot_qa", "ms_marco"]:
             default_tokens = 256
-            n_clusters = 2500
-            tr_top_k_clusters = 50
-            tr_top_k = 15
+            default_n_clusters = 2500
+            default_tr_top_k_clusters = 50
+            default_tr_top_k = 15
         else:
             # Fallback defaults
             default_tokens = 256
-            n_clusters = 50
-            tr_top_k_clusters = 5
-            tr_top_k = 10
+            default_n_clusters = 50
+            default_tr_top_k_clusters = 5
+            default_tr_top_k = 10
 
     if tb_max_tokens is None:
         tb_max_tokens = default_tokens
+    if n_clusters is None:
+        n_clusters = default_n_clusters
+    if tr_top_k_clusters is None:
+        tr_top_k_clusters = default_tr_top_k_clusters
+    if tr_top_k is None:
+        tr_top_k = default_tr_top_k
 
     logging.info(
         f"Configuring RAPTOR with: n_clusters={n_clusters}, tb_max_tokens={tb_max_tokens}, tr_top_k_clusters={tr_top_k_clusters}, tr_top_k={tr_top_k}"
@@ -340,6 +349,9 @@ def evaluate_k_means_on_dataset(
         print("\n" + "=" * 50)
         print(f"Final Evaluation Results")
         print(f"Dataset: {dataset_name}, Model: {model_name}, Chunk size: {tb_max_tokens}")
+        print(
+            f"n_clusters={n_clusters}, tb_max_tokens={tb_max_tokens}, tr_top_k_clusters={tr_top_k_clusters}, tr_top_k={tr_top_k}"
+        )
         # print(f"Total Questions: {len(eval_items)}")
         print(f"Average F1: {results['f1']:.2f}")
         print(f"Average EM: {results['exact_match']:.2f}")
@@ -380,6 +392,11 @@ if __name__ == "__main__":
         help="Run full test with multiple tb_max_tokens (128, 256, 512, 1024, 2048).",
     )
     parser.add_argument(
+        "--freetest",
+        action="store_true",
+        help="Run 5 experiments with manually customizable hyperparameters.",
+    )
+    parser.add_argument(
         "--no_context",
         action="store_true",
         help="Answer questions directly without retrieving context from the tree.",
@@ -387,28 +404,83 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    # Check for mutually exclusive flags
+    if args.fulltest and args.freetest:
+        print("ERROR: --fulltest and --freetest cannot be used together.")
+        print("Please specify only one of these flags.")
+        sys.exit(1)
+
     # Logic for full test
     if args.fulltest:
-        tokens_list = [128, 256, 512, 1024, 2048]
         all_results = []
         print(
             f"Starting FULL TEST on dataset={args.dataset}, model={args.model}, local={args.local}"
         )
-        for tokens in tokens_list:
-            print(f"\n--- Running for tb_max_tokens={tokens} ---")
-            try:
-                res = evaluate_k_means_on_dataset(
-                    dataset_name=args.dataset,
-                    model_name=args.model,
-                    local_test=args.local,
-                    tb_max_tokens=tokens,
-                    print_summary=False,
-                    answer_without_context=args.no_context,
-                )
-                all_results.append((tokens, res))
-            except Exception as e:
-                logging.error(f"Failed run for tokens={tokens}: {e}")
-                all_results.append((tokens, None))
+
+        if args.dataset == "squad":
+            # SQuAD-specific hyperparameter configurations
+            configs = [
+                {
+                    "tb_max_tokens": 128,
+                    "n_clusters": 1500,
+                    "tr_top_k_clusters": 10,
+                    "tr_top_k": 20,
+                },
+                {
+                    "tb_max_tokens": 256,
+                    "n_clusters": 400,
+                    "tr_top_k_clusters": 5,
+                    "tr_top_k": 10,
+                },
+                {
+                    "tb_max_tokens": 512,
+                    "n_clusters": 400,
+                    "tr_top_k_clusters": 5,
+                    "tr_top_k": 5,
+                },
+                {
+                    "tb_max_tokens": 1024,
+                    "n_clusters": 200,
+                    "tr_top_k_clusters": 3,
+                    "tr_top_k": 3,
+                },
+            ]
+            for config in configs:
+                print(f"\n--- Running with config: {config} ---")
+                try:
+                    res = evaluate_k_means_on_dataset(
+                        dataset_name=args.dataset,
+                        model_name=args.model,
+                        local_test=args.local,
+                        tb_max_tokens=config["tb_max_tokens"],
+                        n_clusters=config["n_clusters"],
+                        tr_top_k_clusters=config["tr_top_k_clusters"],
+                        tr_top_k=config["tr_top_k"],
+                        print_summary=False,
+                        answer_without_context=args.no_context,
+                    )
+                    all_results.append((config["tb_max_tokens"], res))
+                except Exception as e:
+                    logging.error(f"Failed run for config={config}: {e}")
+                    all_results.append((config["tb_max_tokens"], None))
+        else:
+            # Original fulltest logic for non-SQuAD datasets
+            tokens_list = [128, 256, 512, 1024, 2048]
+            for tokens in tokens_list:
+                print(f"\n--- Running for tb_max_tokens={tokens} ---")
+                try:
+                    res = evaluate_k_means_on_dataset(
+                        dataset_name=args.dataset,
+                        model_name=args.model,
+                        local_test=args.local,
+                        tb_max_tokens=tokens,
+                        print_summary=False,
+                        answer_without_context=args.no_context,
+                    )
+                    all_results.append((tokens, res))
+                except Exception as e:
+                    logging.error(f"Failed run for tokens={tokens}: {e}")
+                    all_results.append((tokens, None))
 
         print("\n" + "=" * 60)
         print("FULL TEST SUMMARY RESULTS")
@@ -423,6 +495,89 @@ if __name__ == "__main__":
             else:
                 print(f"{tokens:<15} | {'FAILED':<10} | {'FAILED':<10}")
         print("=" * 60)
+
+    # Logic for free test
+    elif args.freetest:
+        all_results = []
+        print(
+            f"Starting FREE TEST on dataset={args.dataset}, model={args.model}, local={args.local}"
+        )
+
+        # Define 5 experiments with customizable parameters
+        # MODIFY THESE PARAMETERS AS NEEDED
+        configs = [
+            {
+                "tb_max_tokens": 256,
+                "n_clusters": 400,
+                "tr_top_k_clusters": 5,
+                "tr_top_k": 10,
+            },
+            {
+                "tb_max_tokens": 256,
+                "n_clusters": 400,
+                "tr_top_k_clusters": 10,
+                "tr_top_k": 10,
+            },
+            {
+                "tb_max_tokens": 256,
+                "n_clusters": 400,
+                "tr_top_k_clusters": 15,
+                "tr_top_k": 10,
+            },
+            {
+                "tb_max_tokens": 256,
+                "n_clusters": 400,
+                "tr_top_k_clusters": 20,
+                "tr_top_k": 10,
+            },
+            {
+                "tb_max_tokens": 256,
+                "n_clusters": 400,
+                "tr_top_k_clusters": 25,
+                "tr_top_k": 10,
+            },
+        ]
+
+        for idx, config in enumerate(configs, 1):
+            print(f"\n--- Running experiment {idx}/5 with config: {config} ---")
+            try:
+                res = evaluate_k_means_on_dataset(
+                    dataset_name=args.dataset,
+                    model_name=args.model,
+                    local_test=args.local,
+                    tb_max_tokens=config["tb_max_tokens"],
+                    n_clusters=config["n_clusters"],
+                    tr_top_k_clusters=config["tr_top_k_clusters"],
+                    tr_top_k=config["tr_top_k"],
+                    print_summary=False,
+                    answer_without_context=args.no_context,
+                )
+                all_results.append((idx, config, res))
+            except Exception as e:
+                logging.error(f"Failed run for experiment {idx}: {e}")
+                all_results.append((idx, config, None))
+
+        print("\n" + "=" * 80)
+        print("FREE TEST SUMMARY RESULTS")
+        print("=" * 80)
+        print(
+            f"{'Exp':<5} | {'Tokens':<8} | {'Clusters':<10} | {'TopKClusters':<14} | {'TopK':<6} | {'F1':<10} | {'EM':<10}"
+        )
+        print("-" * 80)
+        for idx, config, res in all_results:
+            if res:
+                print(
+                    f"{idx:<5} | {config['tb_max_tokens']:<8} | {config['n_clusters']:<10} | "
+                    f"{config['tr_top_k_clusters']:<14} | {config['tr_top_k']:<6} | "
+                    f"{res['f1']:.2f}{'':<6} | {res['exact_match']:.2f}"
+                )
+            else:
+                print(
+                    f"{idx:<5} | {config['tb_max_tokens']:<8} | {config['n_clusters']:<10} | "
+                    f"{config['tr_top_k_clusters']:<14} | {config['tr_top_k']:<6} | "
+                    f"{'FAILED':<10} | {'FAILED':<10}"
+                )
+        print("=" * 80)
 
     # If user runs without arguments, default to local test with squad/qwen (or safe defaults)
     elif len(sys.argv) == 1:
