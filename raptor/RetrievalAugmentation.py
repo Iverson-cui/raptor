@@ -238,6 +238,7 @@ class RetrievalAugmentation:
                 "config must be an instance of RetrievalAugmentationConfig"
             )
 
+        self.config = config
         # Check if tree is a string (indicating a path to a pickled tree)
         if isinstance(tree, str):
             try:
@@ -256,20 +257,42 @@ class RetrievalAugmentation:
 
         tree_builder_class = supported_tree_builders[config.tree_builder_type][0]
         self.tree_builder = tree_builder_class(config.tree_builder_config)
-
-        self.tree_retriever_config = config.tree_retriever_config
         self.qa_model = config.qa_model
-
-        self.retriever_class = supported_retrievers[config.tree_retriever_type][0]
+        # self.retrievers is a list of retriever instances
+        self.retrievers = {}
 
         if self.tree is not None:
-            self.retriever = self.retriever_class(self.tree_retriever_config, self.tree)
+            retriever_class = supported_retrievers[config.tree_retriever_type][0]
+            self.retriever = retriever_class(config.tree_retriever_config, self.tree)
+            self.retrievers["default"] = self.retriever
         else:
             self.retriever = None
 
         logging.info(
             f"Successfully initialized RetrievalAugmentation with Config {config.log_config()}"
         )
+
+    def add_retriever(self, name, config, retriever_type=None):
+        if self.tree is None:
+            raise ValueError(
+                "The tree has not been initialized. Please call 'add_documents' first."
+            )
+
+        if retriever_type is None:
+            retriever_type = self.config.tree_retriever_type
+
+        if retriever_type not in supported_retrievers:
+            raise ValueError(f"Unsupported retriever type: {retriever_type}")
+
+        retriever_class, config_class = supported_retrievers[retriever_type]
+
+        if not isinstance(config, config_class):
+            raise ValueError(
+                f"config must be an instance of {config_class} for retriever_type '{retriever_type}'"
+            )
+
+        self.retrievers[name] = retriever_class(config, self.tree)
+        logging.info(f"Successfully added retriever '{name}'.")
 
     def add_documents(self, docs):
         """
@@ -292,11 +315,14 @@ class RetrievalAugmentation:
         # 2. Recursively clustering and summarizing (Higher-level Nodes)
         self.tree = self.tree_builder.build_from_text(text=docs)
         # builder and retriever is connected by this self.tree
-        self.retriever = self.retriever_class(self.tree_retriever_config, self.tree)
+        retriever_class = supported_retrievers[self.config.tree_retriever_type][0]
+        self.retriever = retriever_class(self.config.tree_retriever_config, self.tree)
+        self.retrievers["default"] = self.retriever
 
     def retrieve(
         self,
         question,
+        retriever_name="default",
         start_layer: int = None,
         num_layers: int = None,
         top_k: int = 10,
@@ -309,6 +335,7 @@ class RetrievalAugmentation:
 
         Args:
             question (str): The question to answer.
+            retriever_name (str): The name of the retriever to use. Defaults to "default".
             start_layer (int): The layer to start from. Defaults to self.start_layer.
             num_layers (int): The number of layers to traverse. Defaults to self.num_layers.
             max_tokens (int): The maximum number of tokens. Defaults to 3500.
@@ -320,12 +347,14 @@ class RetrievalAugmentation:
         Raises:
             ValueError: If the TreeRetriever instance has not been initialized.
         """
-        if self.retriever is None:
-            raise ValueError(
-                "The TreeRetriever instance has not been initialized. Call 'add_documents' first."
-            )
+        if retriever_name not in self.retrievers:
+            raise ValueError(f"Retriever '{retriever_name}' not found.")
 
-        return self.retriever.retrieve(
+        # pick the retriever by name
+        retriever = self.retrievers[retriever_name]
+
+        # use that picked retriever to retrieve contexts and return
+        return retriever.retrieve(
             question,
             start_layer,
             num_layers,
@@ -338,6 +367,7 @@ class RetrievalAugmentation:
     def answer_question(
         self,
         question,
+        retriever_name="default",
         top_k: int = 10,
         start_layer: int = None,
         num_layers: int = None,
@@ -350,6 +380,7 @@ class RetrievalAugmentation:
 
         Args:
             question (str): The question to answer.
+            retriever_name (str): The name of the retriever to use. Defaults to "default".
             start_layer (int): The layer to start from. Defaults to self.start_layer.
             num_layers (int): The number of layers to traverse. Defaults to self.num_layers.
             max_tokens (int): The maximum number of tokens. Defaults to 3500. This means that the context provided to answer a question will not exceed max_tokens.
@@ -362,8 +393,16 @@ class RetrievalAugmentation:
             ValueError: If the TreeRetriever instance has not been initialized.
         """
         # if return_layer_information:
+        # use the retriever with retriever_name
         context, layer_information = self.retrieve(
-            question, start_layer, num_layers, top_k, max_tokens, collapse_tree, True
+            question,
+            retriever_name,
+            start_layer,
+            num_layers,
+            top_k,
+            max_tokens,
+            collapse_tree,
+            True,
         )
         # print("Retrieved Context: ", context)
         answer = self.qa_model.answer_question(context, question)

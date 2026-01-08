@@ -12,6 +12,7 @@ from datasets import load_dataset, concatenate_datasets
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from raptor import RetrievalAugmentation, RetrievalAugmentationConfig
+from raptor.kmeans_retriever import KMeansRetrieverConfig
 from raptor.QAModels import UnifiedQAModel, QwenQAModel, DeepSeekQAModel
 from raptor.EmbeddingModels import SBertEmbeddingModel, BGEM3Model, MpnetBaseCosModel
 from raptor.SummarizationModels import (
@@ -98,6 +99,7 @@ def evaluate_k_means_on_dataset(
     tr_top_k=None,
     print_summary=True,
     answer_without_context=False,
+    multi_retriever_configs=None,  # New parameter: list of dicts for retrieval benchmarking
 ):
     """
     Evaluates K-Means RAPTOR on the specified dataset.
@@ -106,6 +108,18 @@ def evaluate_k_means_on_dataset(
     logging.info(
         f"Starting evaluation (K-Means). Mode: {'Local Test' if local_test else 'Full Dataset'}"
     )
+
+    # multi_retriever_configs is not None means we are entering free test mode
+    # Determine Tree Building Params from the first config if provided
+    # since when entering free test mode, the tb_max_tokens and n_clusters are the same for all configs
+    if multi_retriever_configs:
+        first_cfg = multi_retriever_configs[0]
+        logging.info("Multi-retriever mode: Using first config for Tree Building.")
+        # Override defaults with the first config's values in free test mode
+        tb_max_tokens = first_cfg.get("tb_max_tokens", tb_max_tokens)
+        n_clusters = first_cfg.get("n_clusters", n_clusters)
+        tr_top_k_clusters = first_cfg.get("tr_top_k_clusters", tr_top_k_clusters)
+        tr_top_k = first_cfg.get("tr_top_k", tr_top_k)
 
     # Load dataset object (concatenated splits if needed)
     splits = ["validation"] if local_test else ["train", "validation"]
@@ -220,15 +234,9 @@ def evaluate_k_means_on_dataset(
             logging.warning(f"Unknown server model {model_name}, defaulting to Qwen.")
             qa_model = QwenQAModel(max_memory=qa_memory_map, device_map="auto")
 
-        # embedding_model = SBertEmbeddingModel(device=embedding_device)
         embedding_model = BGEM3Model(device=embedding_device)
-        # embedding_model = SBertEmbeddingModel(
-        #     device=embedding_device,
-        #     target_gpus=["cuda:3", "cuda:4", "cuda:5", "cuda:6"],
-        # )
 
     # Configure for K-Means
-    # Configure parameters based on mode and dataset
     if local_test:
         default_tokens = 200
         default_n_clusters = 5
@@ -246,12 +254,15 @@ def evaluate_k_means_on_dataset(
             default_tr_top_k_clusters = 50
             default_tr_top_k = 15
         else:
-            # Fallback defaults
             default_tokens = 256
             default_n_clusters = 50
             default_tr_top_k_clusters = 5
             default_tr_top_k = 10
 
+    # these 4 parameters can be directly given by the input args of the function
+    # if these 4 are given explicitly, no matter what mode we are in, retrievalAugmentation will use them
+    # if not given and if in freetest mode, we use the first config's values
+    # if not given and not in freetest mode, we use the defaults defined above
     if tb_max_tokens is None:
         tb_max_tokens = default_tokens
     if n_clusters is None:
@@ -285,9 +296,31 @@ def evaluate_k_means_on_dataset(
 
     logging.info("Building K-Means RAPTOR tree...")
     start_time = time.time()
+    # tree building
     RA.add_documents(full_corpus)
     elapsed = time.time() - start_time
     logging.info(f"Tree built successfully in {elapsed:.2f} seconds.")
+
+    # Multi-retriever setup
+    retriever_names = ["default"]
+    # if entering free test mode with multiple retriever configs
+    if multi_retriever_configs:
+        retriever_names = []
+        for idx, cfg in enumerate(multi_retriever_configs):
+            # retrievers' names are: default, config_1, config_2, ...
+            name = f"config_{idx}"
+            # only k_clusters and k_chunks vary here because in free test mode tb_max_tokens and n_clusters are the same for all configs
+            k_clusters = cfg.get("tr_top_k_clusters", tr_top_k_clusters)
+            k_chunks = cfg.get("tr_top_k", tr_top_k)
+
+            config = KMeansRetrieverConfig(
+                top_k_clusters=k_clusters,
+                embedding_model=embedding_model,
+                top_k=k_chunks,
+                context_embedding_model=RA.config.tree_retriever_config.context_embedding_model,
+            )
+            RA.add_retriever(name, config, retriever_type="kmeans")
+            retriever_names.append(name)
 
     # Verify Tree
     if hasattr(RA, "tree"):
@@ -300,64 +333,69 @@ def evaluate_k_means_on_dataset(
     logging.info("Loading evaluation metric...")
     squad_metric = evaluate.load("squad")
 
-    predictions = []
-    references = []
+    all_results_dict = {}
 
-    logging.info(f"Starting Q&A evaluation loop for {len(eval_items)} questions...")
-
-    for i, item in enumerate(eval_items):
-        question = item["question"]
-
-        try:
-            if answer_without_context:
-                if hasattr(qa_model, "answer_question_without_contexts"):
-                    pred_answer = qa_model.answer_question_without_contexts(
-                        context=None, question=question
-                    )
-                else:
-                    # Fallback for models without specific no-context method
-                    pred_answer = qa_model.answer_question(
-                        context="", question=question
-                    )
-            else:
-                response = RA.answer_question(question=question)
-
-                if isinstance(response, tuple):
-                    pred_answer = response[0]
-                else:
-                    pred_answer = response
-        except Exception as e:
-            logging.error(f"Error answering question {i}: {e}")
-            pred_answer = ""
-
-        predictions.append({"id": item["id"], "prediction_text": str(pred_answer)})
-        references.append({"id": item["id"], "answers": item["answers"]})
-
-        log_freq = 1 if local_test else 10
-        if (i + 1) % log_freq == 0:
-            logging.info(f"Checkpoint: Processed {i + 1}/{len(eval_items)} questions.")
-
-        if i < 2:  # Log first 2 predictions
-            logging.info(
-                f"Sample {i+1} - Q: {question} | Pred: {pred_answer} | Gold: {item['answers']['text']}"
-            )
-
-    logging.info("Computing final F1 and Exact Match scores...")
-    results = squad_metric.compute(predictions=predictions, references=references)
-
-    if print_summary:
-        print("\n" + "=" * 50)
-        print(f"Final Evaluation Results")
-        print(f"Dataset: {dataset_name}, Model: {model_name}, Chunk size: {tb_max_tokens}")
-        print(
-            f"n_clusters={n_clusters}, tb_max_tokens={tb_max_tokens}, tr_top_k_clusters={tr_top_k_clusters}, tr_top_k={tr_top_k}"
+    # if not in free test mode, this loop runs only once with the default retriever
+    for r_name in retriever_names:
+        logging.info(
+            f"Starting Q&A evaluation loop for retriever '{r_name}' with {len(eval_items)} questions..."
         )
-        # print(f"Total Questions: {len(eval_items)}")
-        print(f"Average F1: {results['f1']:.2f}")
-        print(f"Average EM: {results['exact_match']:.2f}")
-        print("=" * 50)
+        predictions = []
+        references = []
 
-    return results
+        for i, item in enumerate(eval_items):
+            question = item["question"]
+
+            try:
+                if answer_without_context:
+                    if hasattr(qa_model, "answer_question_without_contexts"):
+                        pred_answer = qa_model.answer_question_without_contexts(
+                            context=None, question=question
+                        )
+                    else:
+                        pred_answer = qa_model.answer_question(
+                            context="", question=question
+                        )
+                else:
+                    response = RA.answer_question(
+                        question=question, retriever_name=r_name
+                    )
+                    pred_answer = (
+                        response[0] if isinstance(response, tuple) else response
+                    )
+            except Exception as e:
+                logging.error(f"Error answering question {i} with {r_name}: {e}")
+                pred_answer = ""
+
+            predictions.append({"id": item["id"], "prediction_text": str(pred_answer)})
+            references.append({"id": item["id"], "answers": item["answers"]})
+
+            log_freq = 1 if local_test else 10
+            if (i + 1) % log_freq == 0:
+                logging.info(
+                    f"Checkpoint ({r_name}): Processed {i + 1}/{len(eval_items)} questions."
+                )
+
+        results = squad_metric.compute(predictions=predictions, references=references)
+        # if multiple retrievers are given, store results in a dict
+        # in default mode, the dict only has one parameters
+        all_results_dict[r_name] = results
+
+        if print_summary:
+            print("\n" + "=" * 50)
+            print(f"Final Evaluation Results for retriever '{r_name}'")
+            print(
+                f"Dataset: {dataset_name}, Model: {model_name}, Chunk size: {tb_max_tokens}"
+            )
+            print(
+                f"n_clusters={n_clusters}, tb_max_tokens={tb_max_tokens}, top_k={tr_top_k}"
+            )
+            print(f"Average F1: {results['f1']:.2f}")
+            print(f"Average EM: {results['exact_match']:.2f}")
+            print("=" * 50)
+
+    # if free test mode return a dict, else directly return the single result
+    return all_results_dict if multi_retriever_configs else all_results_dict["default"]
 
 
 if __name__ == "__main__":
@@ -372,53 +410,31 @@ if __name__ == "__main__":
         type=str,
         default="squad",
         choices=["squad", "hotpot_qa", "ms_marco"],
-        help="Dataset to evaluate on",
     )
     parser.add_argument(
-        "--model",
-        type=str,
-        default="qwen",
-        choices=["qwen", "deepseek", "unifiedqa"],
-        help="QA Model to use (unifiedqa is for local test)",
+        "--model", type=str, default="qwen", choices=["qwen", "deepseek", "unifiedqa"]
     )
-    parser.add_argument(
-        "--local",
-        action="store_true",
-        help="Run in local test mode (small subset, CPU)",
-    )
-    parser.add_argument(
-        "--fulltest",
-        action="store_true",
-        help="Run full test with multiple tb_max_tokens (128, 256, 512, 1024, 2048).",
-    )
-    parser.add_argument(
-        "--freetest",
-        action="store_true",
-        help="Run 5 experiments with manually customizable hyperparameters.",
-    )
-    parser.add_argument(
-        "--no_context",
-        action="store_true",
-        help="Answer questions directly without retrieving context from the tree.",
-    )
+    parser.add_argument("--local", action="store_true")
+    parser.add_argument("--fulltest", action="store_true")
+    parser.add_argument("--freetest", action="store_true")
+    parser.add_argument("--no_context", action="store_true")
 
     args = parser.parse_args()
 
-    # Check for mutually exclusive flags
     if args.fulltest and args.freetest:
         print("ERROR: --fulltest and --freetest cannot be used together.")
-        print("Please specify only one of these flags.")
         sys.exit(1)
 
-    # Logic for full test
+    # full test mode
     if args.fulltest:
+        # in full test mode, tree building and retrieving process are both run several times
         all_results = []
         print(
             f"Starting FULL TEST on dataset={args.dataset}, model={args.model}, local={args.local}"
         )
 
         if args.dataset == "squad":
-            # SQuAD-specific hyperparameter configurations
+            # SQuAD-specific hyperparameter configurations (Original Logic)
             configs = [
                 {
                     "tb_max_tokens": 128,
@@ -485,7 +501,7 @@ if __name__ == "__main__":
         print("\n" + "=" * 60)
         print("FULL TEST SUMMARY RESULTS")
         print("=" * 60)
-        print(f"{'Max Tokens':<15} | {'F1':<10} | {'EM':<10}")
+        print(f"{ 'Max Tokens':<15} | {'F1':<10} | {'EM':<10}")
         print("-" * 60)
         for tokens, res in all_results:
             if res:
@@ -496,92 +512,63 @@ if __name__ == "__main__":
                 print(f"{tokens:<15} | {'FAILED':<10} | {'FAILED':<10}")
         print("=" * 60)
 
-    # Logic for free test
+    # free test mode
     elif args.freetest:
-        all_results = []
+        # in free test mode, tree building is done once, retrieval is done multiple times with varied parameters
         print(
             f"Starting FREE TEST on dataset={args.dataset}, model={args.model}, local={args.local}"
         )
+        print("Using optimized multi-retriever benchmarking (building tree once).")
 
-        # Define 5 experiments with customizable parameters
-        # MODIFY THESE PARAMETERS AS NEEDED
-        configs = [
-            {
-                "tb_max_tokens": 256,
-                "n_clusters": 400,
-                "tr_top_k_clusters": 5,
-                "tr_top_k": 10,
-            },
-            {
-                "tb_max_tokens": 256,
-                "n_clusters": 400,
-                "tr_top_k_clusters": 10,
-                "tr_top_k": 10,
-            },
-            {
-                "tb_max_tokens": 256,
-                "n_clusters": 400,
-                "tr_top_k_clusters": 15,
-                "tr_top_k": 10,
-            },
-            {
-                "tb_max_tokens": 256,
-                "n_clusters": 400,
-                "tr_top_k_clusters": 20,
-                "tr_top_k": 10,
-            },
-            {
-                "tb_max_tokens": 256,
-                "n_clusters": 400,
-                "tr_top_k_clusters": 25,
-                "tr_top_k": 10,
-            },
-        ]
+        # Consistent Tree Building parameters
+        CHUNK_SIZE = 200
+        N_CLUSTERS = 5
 
-        for idx, config in enumerate(configs, 1):
-            print(f"\n--- Running experiment {idx}/5 with config: {config} ---")
-            try:
-                res = evaluate_k_means_on_dataset(
-                    dataset_name=args.dataset,
-                    model_name=args.model,
-                    local_test=args.local,
-                    tb_max_tokens=config["tb_max_tokens"],
-                    n_clusters=config["n_clusters"],
-                    tr_top_k_clusters=config["tr_top_k_clusters"],
-                    tr_top_k=config["tr_top_k"],
-                    print_summary=False,
-                    answer_without_context=args.no_context,
-                )
-                all_results.append((idx, config, res))
-            except Exception as e:
-                logging.error(f"Failed run for experiment {idx}: {e}")
-                all_results.append((idx, config, None))
+        # Varied Retrieval parameters
+        tr_top_k_clusters_list = [2, 5, 10, 15, 20]
+        tr_top_k_chunks_list = [5, 10, 15, 20, 25]  # top_k retrieved chunks
 
-        print("\n" + "=" * 80)
-        print("FREE TEST SUMMARY RESULTS")
-        print("=" * 80)
-        print(
-            f"{'Exp':<5} | {'Tokens':<8} | {'Clusters':<10} | {'TopKClusters':<14} | {'TopK':<6} | {'F1':<10} | {'EM':<10}"
+        multi_retriever_configs = []
+        for kc, k in zip(tr_top_k_clusters_list, tr_top_k_chunks_list):
+            multi_retriever_configs.append(
+                {
+                    "tb_max_tokens": CHUNK_SIZE,
+                    "n_clusters": N_CLUSTERS,
+                    "tr_top_k_clusters": kc,
+                    "tr_top_k": k,
+                }
+            )
+
+        all_results_dict = evaluate_k_means_on_dataset(
+            dataset_name=args.dataset,
+            model_name=args.model,
+            local_test=args.local,
+            multi_retriever_configs=multi_retriever_configs,
+            answer_without_context=args.no_context,
+            print_summary=False,
         )
-        print("-" * 80)
-        for idx, config, res in all_results:
+
+        print("\n" + "=" * 100)
+        print("FREE TEST SUMMARY RESULTS (MULTI-RETRIEVER)")
+        print(f"Fixed: Chunk Size={CHUNK_SIZE}, N Clusters={N_CLUSTERS}")
+        print("=" * 100)
+        print(
+            f"{ 'Retriever':<12} | {'TopK_Cl':<8} | {'TopK_Ch':<8} | {'F1':<10} | {'EM':<10}"
+        )
+        print("-" * 100)
+        for idx, (name, res) in enumerate(all_results_dict.items()):
+            cfg = multi_retriever_configs[idx]
             if res:
                 print(
-                    f"{idx:<5} | {config['tb_max_tokens']:<8} | {config['n_clusters']:<10} | "
-                    f"{config['tr_top_k_clusters']:<14} | {config['tr_top_k']:<6} | "
-                    f"{res['f1']:.2f}{'':<6} | {res['exact_match']:.2f}"
+                    f"{name:<12} | {cfg['tr_top_k_clusters']:<8} | {cfg['tr_top_k']:<8} | {res['f1']:.2f}{'':<6} | {res['exact_match']:.2f}"
                 )
             else:
                 print(
-                    f"{idx:<5} | {config['tb_max_tokens']:<8} | {config['n_clusters']:<10} | "
-                    f"{config['tr_top_k_clusters']:<14} | {config['tr_top_k']:<6} | "
-                    f"{'FAILED':<10} | {'FAILED':<10}"
+                    f"{name:<12} | {cfg['tr_top_k_clusters']:<8} | {cfg['tr_top_k']:<8} | {'FAILED':<10} | {'FAILED':<10}"
                 )
-        print("=" * 80)
+        print("=" * 100)
 
-    # If user runs without arguments, default to local test with squad/qwen (or safe defaults)
     elif len(sys.argv) == 1:
-        # Default run behavior if no args provided (backward compatibility / safety)
         print("No arguments provided. Defaulting to SQuAD local test.")
         evaluate_k_means_on_dataset(
             dataset_name="squad", model_name="unifiedqa", local_test=True
