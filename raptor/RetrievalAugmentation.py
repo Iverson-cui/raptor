@@ -291,6 +291,7 @@ class RetrievalAugmentation:
         # 1. Splitting text into chunks (Leaf Nodes)
         # 2. Recursively clustering and summarizing (Higher-level Nodes)
         self.tree = self.tree_builder.build_from_text(text=docs)
+        # builder and retriever is connected by this self.tree
         self.retriever = self.retriever_class(self.tree_retriever_config, self.tree)
 
     def retrieve(

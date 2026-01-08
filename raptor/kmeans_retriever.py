@@ -86,18 +86,23 @@ class KMeansRetriever(BaseRetriever):
                 cluster_distances
             )
 
+            # top_k_clusters is a parameter specifically designed for KMeansRetriever
+            # In RAPTOR, no such parameter exists because brute force is used
             selected_cluster_indices = cluster_indices[: self.top_k_clusters]
+            # selected_clusters is a list of Node objects
             selected_clusters = [cluster_nodes[i] for i in selected_cluster_indices]
 
             # 3. Gather chunks from selected clusters
-            # candidate_chunks is a list of indexes of leaf nodes from candidate clusters
+            # candidate_chunks_indices is a set of indexes of leaf nodes from candidate clusters
             candidate_chunks_indices = set()
             for cluster in selected_clusters:
+                # add all of indexes of the children of all clusters
                 candidate_chunks_indices.update(cluster.children)
 
             # Retrieve actual Node objects for these indices
             # Since leaf nodes are in self.tree.leaf_nodes (dict index->Node)
             # a list of candidate nodes
+            # candidate_chunks is a list of Node objects from candidate clusters
             candidate_chunks = [
                 self.tree.leaf_nodes[idx]
                 for idx in candidate_chunks_indices
