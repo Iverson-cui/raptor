@@ -83,6 +83,52 @@ def get_dataset_processors(dataset_name):
                 "answers": {"text": item["answers"], "answer_start": [-1]},
             }
 
+    elif dataset_name == "squad_v2":
+
+        def extract_contexts(item):
+            return [item["context"]]
+
+        def process_item(item):
+            return {
+                "id": str(item["id"]),
+                "question": item["question"],
+                "answers": item["answers"],
+            }
+
+    elif dataset_name == "natural_questions":
+
+        def extract_contexts(item):
+            # item['document']['tokens'] is {'token': [...], 'is_html': [...]}
+            doc_tokens = item["document"]["tokens"]
+            token_list = doc_tokens["token"]
+            is_html_list = doc_tokens["is_html"]
+            # Filter out HTML tokens to get clean context
+            valid_tokens = [
+                t for t, is_html in zip(token_list, is_html_list) if not is_html
+            ]
+            return [" ".join(valid_tokens)]
+
+        def process_item(item):
+            # Extract answers from annotations
+            # item['annotations'] is a list of dicts
+            doc_tokens = item["document"]["tokens"]["token"]
+            valid_answers = []
+            for ann in item["annotations"]:
+                # short_answers is {'start_token': [...], 'end_token': [...]}
+                starts = ann["short_answers"]["start_token"]
+                ends = ann["short_answers"]["end_token"]
+                for s, e in zip(starts, ends):
+                    ans_str = " ".join(doc_tokens[s:e])
+                    if ans_str:
+                        valid_answers.append(ans_str)
+            
+            valid_answers = list(set(valid_answers))
+            return {
+                "id": str(item["id"]),
+                "question": item["question"]["text"],
+                "answers": {"text": valid_answers, "answer_start": [-1] * len(valid_answers)},
+            }
+
     else:
         raise ValueError(f"Unknown dataset: {dataset_name}")
 
@@ -128,12 +174,16 @@ def evaluate_k_means_on_dataset(
         try:
             if dataset_name == "squad":
                 loaded_splits.append(load_dataset("squad", split=split))
+            elif dataset_name == "squad_v2":
+                loaded_splits.append(load_dataset("squad_v2", split=split))
             elif dataset_name == "hotpot_qa":
                 loaded_splits.append(
                     load_dataset("hotpot_qa", "distractor", split=split)
                 )
             elif dataset_name == "ms_marco":
                 loaded_splits.append(load_dataset("ms_marco", "v1.1", split=split))
+            elif dataset_name == "natural_questions":
+                loaded_splits.append(load_dataset("natural_questions", split=split))
             else:
                 raise ValueError(f"Unknown dataset: {dataset_name}")
         except Exception as e:
@@ -243,12 +293,12 @@ def evaluate_k_means_on_dataset(
         default_tr_top_k_clusters = 2
         default_tr_top_k = 5
     else:
-        if dataset_name == "squad":
+        if dataset_name in ["squad", "squad_v2"]:
             default_tokens = 256
             default_n_clusters = 210
             default_tr_top_k_clusters = 15
             default_tr_top_k = 10
-        elif dataset_name in ["hotpot_qa", "ms_marco"]:
+        elif dataset_name in ["hotpot_qa", "ms_marco", "natural_questions"]:
             default_tokens = 256
             default_n_clusters = 2500
             default_tr_top_k_clusters = 50
@@ -409,7 +459,7 @@ if __name__ == "__main__":
         "--dataset",
         type=str,
         default="squad",
-        choices=["squad", "hotpot_qa", "ms_marco"],
+        choices=["squad", "hotpot_qa", "ms_marco", "squad_v2", "natural_questions"],
     )
     parser.add_argument(
         "--model", type=str, default="qwen", choices=["qwen", "deepseek", "unifiedqa"]
@@ -521,12 +571,12 @@ if __name__ == "__main__":
         print("Using optimized multi-retriever benchmarking (building tree once).")
 
         # Consistent Tree Building parameters
-        CHUNK_SIZE = 200
-        N_CLUSTERS = 5
+        CHUNK_SIZE = 256
+        N_CLUSTERS = 400
 
         # Varied Retrieval parameters
-        tr_top_k_clusters_list = [2, 5, 10, 15, 20]
-        tr_top_k_chunks_list = [5, 10, 15, 20, 25]  # top_k retrieved chunks
+        tr_top_k_clusters_list = [3, 5, 10, 15, 20]
+        tr_top_k_chunks_list = [10, 10, 10, 10, 10]  # top_k retrieved chunks
 
         multi_retriever_configs = []
         for kc, k in zip(tr_top_k_clusters_list, tr_top_k_chunks_list):
