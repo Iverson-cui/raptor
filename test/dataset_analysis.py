@@ -143,6 +143,8 @@ if len(row["entity_pages"]["wiki_context"]) > 0:
     print(
         f"First Wiki Doc Preview: {row['entity_pages']['wiki_context'][0][:200]}..."
     )  # First 200 chars
+else:
+    print("\nNo Wikipedia contexts found.")
 
 # Check Web Contexts
 if len(row["search_results"]["search_context"]) > 0:
