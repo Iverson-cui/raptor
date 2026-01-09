@@ -224,7 +224,9 @@ def evaluate_k_means_on_dataset(
             elif dataset_name == "natural_questions":
                 loaded_splits.append(load_dataset("natural_questions", split=split))
             elif dataset_name == "trivia_qa":
-                loaded_splits.append(load_dataset("trivia_qa", "rc", split=split))
+                loaded_splits.append(
+                    load_dataset("trivia_qa", "rc", split="validation")
+                )
             else:
                 raise ValueError(f"Unknown dataset: {dataset_name}")
         except Exception as e:
