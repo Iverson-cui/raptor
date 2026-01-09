@@ -278,15 +278,16 @@ def evaluate_k_means_on_dataset(
     for i, item in enumerate(dataset):
         # 1. Extract and store contexts in this row
         current_contexts = extract_contexts_fn(item)
+        has_context = False
         for ctx in current_contexts:
             if ctx not in seen_contexts:
                 all_contexts.append(ctx)
                 seen_contexts.add(ctx)
+            has_context = True
 
         # 2. Store eval item if needed, i.e. question in this row
-        # limit the question size under the num_eval_questions_target
-        # if max_contexts_to_process is None, then add all of contexts in the datasets but only num_eval_questions_target questions
-        if len(eval_items) < num_eval_questions_target:
+        # Only store questions that have corresponding contexts
+        if len(eval_items) < num_eval_questions_target and has_context:
             processed_item = process_item_fn(item)
             # Only add if there is at least one ground truth answer to avoid max() error in metrics
             if processed_item["answers"]["text"]:
