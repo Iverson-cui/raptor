@@ -9,6 +9,7 @@ from typing import Dict, List, Optional, Set, Tuple
 import openai
 import tiktoken
 from tenacity import retry, stop_after_attempt, wait_random_exponential
+from tqdm import tqdm
 
 from .EmbeddingModels import (
     BGEM3Model,
@@ -274,7 +275,9 @@ class TreeBuilder:
             }
 
             leaf_nodes = {}
-            for future in as_completed(future_nodes):
+            for future in tqdm(
+                as_completed(future_nodes), total=len(future_nodes), desc="Creating Leaf Nodes"
+            ):
                 index, node = future.result()
                 leaf_nodes[index] = node
 

@@ -39,6 +39,15 @@ class MockSummarizationModel(BaseSummarizationModel):
 def get_dataset_processors(dataset_name):
     """
     Returns extraction and processing functions for the specified dataset.
+    Every dataset is different. The row in a dataset contains different fields.
+    So for each dataset, we define two functions:
+    1. extract_contexts(item): extracts a list of context strings from the dataset row
+    2. process_item(item): extracts the questions and answers
+    No matter what dataset, process_item should return a dict with keys:
+        - 'id': unique identifier for the question
+        - 'question': the question string
+        - 'answers': a dict with key 'text' containing a list of ground truth answers
+        - 'answer_start' is optional, can be set to -1 if not available
     """
     if dataset_name == "squad":
 
@@ -121,7 +130,7 @@ def get_dataset_processors(dataset_name):
                     ans_str = " ".join(doc_tokens[s:e])
                     if ans_str:
                         valid_answers.append(ans_str)
-            
+
             valid_answers = list(set(valid_answers))
             return {
                 "id": str(item["id"]),
@@ -138,12 +147,12 @@ def get_dataset_processors(dataset_name):
                 for text in item["entity_pages"].get("wiki_context", []):
                     if text.strip():
                         contexts.append(text)
-            
-            # item['search_results'] is {'search_context': [...], ...}
-            if "search_results" in item:
-                for text in item["search_results"].get("search_context", []):
-                    if text.strip():
-                        contexts.append(text)
+
+            # # item['search_results'] is {'search_context': [...], ...}
+            # if "search_results" in item:
+            #     for text in item["search_results"].get("search_context", []):
+            #         if text.strip():
+            #             contexts.append(text)
             return contexts
 
         def process_item(item):
@@ -152,7 +161,7 @@ def get_dataset_processors(dataset_name):
             aliases = item["answer"]["aliases"]
             all_answers = [answer_val] + aliases
             all_answers = list(set([a for a in all_answers if a]))
-            
+
             return {
                 "id": str(item["question_id"]),
                 "question": item["question"],
@@ -235,15 +244,15 @@ def evaluate_k_means_on_dataset(
     # Configuration for models
     if not local_test:
         qa_memory_map = {
-            0: "0GiB",
-            1: "0GiB",
+            0: "25GiB",
+            1: "45GiB",
             2: "0GiB",
             3: "0GiB",
-            4: "40GiB",
-            5: "40GiB",
-            6: "40GiB",
+            4: "0GiB",
+            5: "0GiB",
+            6: "0GiB",
         }
-        embedding_device = "cuda:3"
+        embedding_device = "cuda:0"
     else:
         embedding_device = "mps"
 
@@ -259,7 +268,9 @@ def evaluate_k_means_on_dataset(
 
     # Collect Data (Synchronized Loop)
     logging.info("Gathering data (contexts and questions)...")
+    # all_contexts is a list of unique context strings
     all_contexts = []
+    # eval_items is a list of processed items containing questions and answers
     eval_items = []
     seen_contexts = set()
 
@@ -445,6 +456,7 @@ def evaluate_k_means_on_dataset(
                     response = RA.answer_question(
                         question=question, retriever_name=r_name
                     )
+                    # response can be a string or a tuple (answer, layer information)
                     pred_answer = (
                         response[0] if isinstance(response, tuple) else response
                     )
@@ -461,6 +473,7 @@ def evaluate_k_means_on_dataset(
                     f"Checkpoint ({r_name}): Processed {i + 1}/{len(eval_items)} questions."
                 )
 
+        # this step will automatically normalize the answers and predictions
         results = squad_metric.compute(predictions=predictions, references=references)
         # if multiple retrievers are given, store results in a dict
         # in default mode, the dict only has one parameters
@@ -503,6 +516,24 @@ if __name__ == "__main__":
     parser.add_argument("--fulltest", action="store_true")
     parser.add_argument("--freetest", action="store_true")
     parser.add_argument("--no_context", action="store_true")
+
+    # New arguments for customizing parameters
+    parser.add_argument("--chunk_size", type=int, help="Chunk size for tree building")
+    parser.add_argument("--n_clusters", type=int, help="Number of clusters for tree building")
+    parser.add_argument("--top_k_clusters", type=int, help="Top k clusters for retrieval")
+    parser.add_argument("--top_k", type=int, help="Top k chunks for retrieval")
+    parser.add_argument(
+        "--k_clusters_list",
+        type=int,
+        nargs="+",
+        help="List of top_k_clusters for freetest (e.g., 3 5 10)",
+    )
+    parser.add_argument(
+        "--k_chunks_list",
+        type=int,
+        nargs="+",
+        help="List of top_k_chunks for freetest (e.g., 10 10 10)",
+    )
 
     args = parser.parse_args()
 
@@ -606,12 +637,20 @@ if __name__ == "__main__":
         print("Using optimized multi-retriever benchmarking (building tree once).")
 
         # Consistent Tree Building parameters
-        CHUNK_SIZE = 256
-        N_CLUSTERS = 400
+        CHUNK_SIZE = args.chunk_size if args.chunk_size is not None else 256
+        N_CLUSTERS = args.n_clusters if args.n_clusters is not None else 400
 
         # Varied Retrieval parameters
-        tr_top_k_clusters_list = [3, 5, 10, 15, 20]
-        tr_top_k_chunks_list = [10, 10, 10, 10, 10]  # top_k retrieved chunks
+        tr_top_k_clusters_list = (
+            args.k_clusters_list
+            if args.k_clusters_list is not None
+            else [3, 5, 10, 15, 20]
+        )
+        tr_top_k_chunks_list = (
+            args.k_chunks_list
+            if args.k_chunks_list is not None
+            else [10, 10, 10, 10, 10]
+        )  # top_k retrieved chunks
 
         multi_retriever_configs = []
         for kc, k in zip(tr_top_k_clusters_list, tr_top_k_chunks_list):
@@ -664,4 +703,8 @@ if __name__ == "__main__":
             model_name=args.model,
             local_test=args.local,
             answer_without_context=args.no_context,
+            tb_max_tokens=args.chunk_size,
+            n_clusters=args.n_clusters,
+            tr_top_k_clusters=args.top_k_clusters,
+            tr_top_k=args.top_k,
         )

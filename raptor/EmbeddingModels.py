@@ -46,7 +46,7 @@ class SBertEmbeddingModel(BaseEmbeddingModel):
         )
 
     def create_embedding(self, text):
-        return self.model.encode(text, normalize_embeddings=True)
+        return self.model.encode(text, normalize_embeddings=True, show_progress_bar=False)
 
 
 # class SBertEmbeddingModel(BaseEmbeddingModel):
@@ -128,7 +128,7 @@ class MpnetBaseCosModel(BaseEmbeddingModel):
         self.model = SentenceTransformer(model_name)
 
     def create_embedding(self, text):
-        return self.model.encode(text, normalize_embeddings=True)
+        return self.model.encode(text, normalize_embeddings=True, show_progress_bar=False)
 
 
 class BGEM3Model(BaseEmbeddingModel):
@@ -159,5 +159,5 @@ class BGEM3Model(BaseEmbeddingModel):
             text,
             normalize_embeddings=True,  # Critical for Cosine Similarity
             batch_size=512,
-            show_progress_bar=True,
+            show_progress_bar=False,
         )

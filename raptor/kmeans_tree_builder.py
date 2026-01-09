@@ -89,7 +89,7 @@ class KMeansTreeBuilder(TreeBuilder):
             k=n_clusters,
             niter=20,
             nredo=3,
-            verbose=True,
+            verbose=False,
             spherical=True,
             seed=42,
             gpu=use_gpu,

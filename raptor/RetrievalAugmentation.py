@@ -373,7 +373,7 @@ class RetrievalAugmentation:
         num_layers: int = None,
         max_tokens: int = 3500,
         collapse_tree: bool = False,
-        return_layer_information: bool = True,
+        return_layer_information: bool = False,
     ):
         """
         Retrieves information and answers a question using the TreeRetriever instance.
