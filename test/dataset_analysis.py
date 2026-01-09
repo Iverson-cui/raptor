@@ -14,13 +14,13 @@ def analyze_dataset(dataset_name, dataset, context_field):
     # Get unique contexts
     unique_contexts = set()
     print("Extracting unique contexts...")
-    
+
     # Use the column directly if possible for speed, but iterate for dicts/lists
     for item in dataset:
         val = item.get(context_field)
         if val is None:
             continue
-            
+
         if isinstance(val, str):
             if val.strip():
                 unique_contexts.add(val)
@@ -35,6 +35,11 @@ def analyze_dataset(dataset_name, dataset, context_field):
                 text = val["html"]
                 if text and isinstance(text, str) and text.strip():
                     unique_contexts.add(text)
+            # Handle TriviaQA
+            elif "wiki_context" in val:
+                for text in val["wiki_context"]:
+                    if text and isinstance(text, str) and text.strip():
+                        unique_contexts.add(text)
         elif isinstance(val, list):
             for sub_val in val:
                 if isinstance(sub_val, str) and sub_val.strip():
@@ -50,22 +55,16 @@ def analyze_dataset(dataset_name, dataset, context_field):
     # Chunk analysis
     print("\nCHUNK ANALYSIS:")
     print("-" * 80)
-    
+
     print("Tokenizing unique contexts...")
     # Optimize: tokenize once, then calculate chunks for different sizes
     token_counts = []
     for context in unique_contexts:
         token_counts.append(len(tokenizer.encode(context)))
-    
+
     for chunk_size in chunk_sizes:
         total_chunks = sum((tc + chunk_size - 1) // chunk_size for tc in token_counts)
         print(f"Chunk size {chunk_size:4d} tokens: {total_chunks:10d} chunks")
-
-    # Optional: Print first few contexts for verification (commented out)
-    # print("\nSAMPLE CONTEXTS (First 3):")
-    # for i, context in enumerate(list(unique_contexts)[:3]):
-    #     print(f"\n--- Context {i+1} ---")
-    #     print(context[:200] + "..." if len(context) > 200 else context)
 
 
 # 1. SQuAD
@@ -85,8 +84,14 @@ print("\nLoading MS MARCO Passage Ranking v2.1...")
 msmarco_doc_dataset = load_dataset("ms_marco", "v2.1", split="train")
 analyze_dataset("MS MARCO Passage Ranking v2.1", msmarco_doc_dataset, "passages")
 
-# 4. Natural Questions
-print("\nLoading Natural Questions...")
-# Warning: NQ train split is very large (~40GB+)
-nq_dataset = load_dataset("natural_questions", split="train")
-analyze_dataset("Natural Questions", nq_dataset, "document")
+# # 4. Natural Questions
+# print("\nLoading Natural Questions...")
+# # Warning: NQ train split is very large (~40GB+)
+# nq_dataset = load_dataset("natural_questions", split="train")
+# analyze_dataset("Natural Questions", nq_dataset, "document")
+
+# 5. TriviaQA
+print("\nLoading TriviaQA...")
+# Config 'rc' is the reading comprehension config
+trivia_qa_dataset = load_dataset("trivia_qa", "rc", split="validation")
+analyze_dataset("TriviaQA", trivia_qa_dataset, "entity_pages")

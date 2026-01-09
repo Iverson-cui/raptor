@@ -282,7 +282,10 @@ class TreeBuilder:
 
     def build_from_text(self, text: str, use_multithreading: bool = True) -> Tree:
         """Builds a golden tree from the input text, optionally using multithreading.
-        
+        This step includes two steps: leaf node creation and tree construction.
+        Leaf node creation can be parallelized using multithreading for efficiency and this step is the same for all tree builders.
+        tree construction is specific to each tree builder and is implemented in the subclass.
+
         Step 2 (Leaf Node Creation):
         Before building the hierarchy, the text is split into manageable chunks.
         These chunks form the "Leaf Nodes" (Layer 0) of the tree.

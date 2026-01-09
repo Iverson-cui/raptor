@@ -294,7 +294,7 @@ class RetrievalAugmentation:
         self.retrievers[name] = retriever_class(config, self.tree)
         logging.info(f"Successfully added retriever '{name}'.")
 
-    def add_documents(self, docs):
+    def add_documents(self, docs, use_multithreading=True):
         """
         Adds documents to the tree and creates a TreeRetriever instance.
 
@@ -313,7 +313,7 @@ class RetrievalAugmentation:
         # The build_from_text method orchestrates the entire tree construction process:
         # 1. Splitting text into chunks (Leaf Nodes)
         # 2. Recursively clustering and summarizing (Higher-level Nodes)
-        self.tree = self.tree_builder.build_from_text(text=docs)
+        self.tree = self.tree_builder.build_from_text(text=docs, use_multithreading=use_multithreading)
         # builder and retriever is connected by this self.tree
         retriever_class = supported_retrievers[self.config.tree_retriever_type][0]
         self.retriever = retriever_class(self.config.tree_retriever_config, self.tree)

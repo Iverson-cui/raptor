@@ -129,6 +129,36 @@ def get_dataset_processors(dataset_name):
                 "answers": {"text": valid_answers, "answer_start": [-1] * len(valid_answers)},
             }
 
+    elif dataset_name == "trivia_qa":
+
+        def extract_contexts(item):
+            contexts = []
+            # item['entity_pages'] is {'wiki_context': [...], ...}
+            if "entity_pages" in item:
+                for text in item["entity_pages"].get("wiki_context", []):
+                    if text.strip():
+                        contexts.append(text)
+            
+            # item['search_results'] is {'search_context': [...], ...}
+            if "search_results" in item:
+                for text in item["search_results"].get("search_context", []):
+                    if text.strip():
+                        contexts.append(text)
+            return contexts
+
+        def process_item(item):
+            # item['answer'] is {'aliases': [...], 'value': ...}
+            answer_val = item["answer"]["value"]
+            aliases = item["answer"]["aliases"]
+            all_answers = [answer_val] + aliases
+            all_answers = list(set([a for a in all_answers if a]))
+            
+            return {
+                "id": str(item["question_id"]),
+                "question": item["question"],
+                "answers": {"text": all_answers, "answer_start": [-1] * len(all_answers)},
+            }
+
     else:
         raise ValueError(f"Unknown dataset: {dataset_name}")
 
@@ -184,6 +214,8 @@ def evaluate_k_means_on_dataset(
                 loaded_splits.append(load_dataset("ms_marco", "v1.1", split=split))
             elif dataset_name == "natural_questions":
                 loaded_splits.append(load_dataset("natural_questions", split=split))
+            elif dataset_name == "trivia_qa":
+                loaded_splits.append(load_dataset("trivia_qa", "rc", split=split))
             else:
                 raise ValueError(f"Unknown dataset: {dataset_name}")
         except Exception as e:
@@ -233,14 +265,16 @@ def evaluate_k_means_on_dataset(
 
     # Iterate through the dataset
     for i, item in enumerate(dataset):
-        # 1. Extract and store contexts
+        # 1. Extract and store contexts in this row
         current_contexts = extract_contexts_fn(item)
         for ctx in current_contexts:
             if ctx not in seen_contexts:
                 all_contexts.append(ctx)
                 seen_contexts.add(ctx)
 
-        # 2. Store eval item if needed
+        # 2. Store eval item if needed, i.e. question in this row
+        # limit the question size under the num_eval_questions_target
+        # if max_contexts_to_process is None, then add all of contexts in the datasets but only num_eval_questions_target questions
         if len(eval_items) < num_eval_questions_target:
             processed_item = process_item_fn(item)
             # Only add if there is at least one ground truth answer to avoid max() error in metrics
@@ -298,7 +332,7 @@ def evaluate_k_means_on_dataset(
             default_n_clusters = 210
             default_tr_top_k_clusters = 15
             default_tr_top_k = 10
-        elif dataset_name in ["hotpot_qa", "ms_marco", "natural_questions"]:
+        elif dataset_name in ["hotpot_qa", "ms_marco", "natural_questions", "trivia_qa"]:
             default_tokens = 256
             default_n_clusters = 2500
             default_tr_top_k_clusters = 50
@@ -347,7 +381,7 @@ def evaluate_k_means_on_dataset(
     logging.info("Building K-Means RAPTOR tree...")
     start_time = time.time()
     # tree building
-    RA.add_documents(full_corpus)
+    RA.add_documents(full_corpus, use_multithreading=not local_test)
     elapsed = time.time() - start_time
     logging.info(f"Tree built successfully in {elapsed:.2f} seconds.")
 
@@ -357,7 +391,8 @@ def evaluate_k_means_on_dataset(
     if multi_retriever_configs:
         retriever_names = []
         for idx, cfg in enumerate(multi_retriever_configs):
-            # retrievers' names are: default, config_1, config_2, ...
+            # retrievers' names are: config_0, config_1, ...
+            # if multi_retriever_configs is given, there is no default, just start from config_0
             name = f"config_{idx}"
             # only k_clusters and k_chunks vary here because in free test mode tb_max_tokens and n_clusters are the same for all configs
             k_clusters = cfg.get("tr_top_k_clusters", tr_top_k_clusters)
@@ -459,7 +494,7 @@ if __name__ == "__main__":
         "--dataset",
         type=str,
         default="squad",
-        choices=["squad", "hotpot_qa", "ms_marco", "squad_v2", "natural_questions"],
+        choices=["squad", "hotpot_qa", "ms_marco", "squad_v2", "natural_questions", "trivia_qa"],
     )
     parser.add_argument(
         "--model", type=str, default="qwen", choices=["qwen", "deepseek", "unifiedqa"]
