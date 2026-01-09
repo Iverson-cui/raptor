@@ -1,8 +1,41 @@
 from datasets import load_dataset
 import tiktoken
+import json
 
 tokenizer = tiktoken.get_encoding("cl100k_base")  # GPT-4 tokenizer
 chunk_sizes = [128, 256, 512, 1024]
+
+
+def inspect_dataset_structure(dataset_name, dataset, num_samples=1):
+    """Inspect the structure of a dataset by showing fields and sample rows."""
+    print("\n" + "=" * 80)
+    print(f"DATASET STRUCTURE: {dataset_name}")
+    print("=" * 80)
+
+    # Get column names
+    print(f"\nTotal Rows: {len(dataset)}")
+    print(f"\nFields ({len(dataset.column_names)}): {dataset.column_names}")
+
+    # Show sample rows
+    print(f"\n--- Sample Row(s) ---")
+    for i in range(min(num_samples, len(dataset))):
+        print(f"\nRow {i}:")
+        row = dataset[i]
+        for field_name in dataset.column_names:
+            value = row[field_name]
+            # Truncate long strings/lists for readability
+            if isinstance(value, str):
+                display_value = value[:200] + "..." if len(value) > 200 else value
+            elif isinstance(value, list):
+                display_value = f"[List with {len(value)} items]"
+                if len(value) > 0:
+                    display_value += f" First item: {str(value[0])[:100]}..."
+            elif isinstance(value, dict):
+                display_value = f"[Dict with keys: {list(value.keys())}]"
+            else:
+                display_value = value
+            print(f"  {field_name}: {display_value}")
+    print()
 
 
 def analyze_dataset(dataset_name, dataset, context_field):
@@ -67,22 +100,22 @@ def analyze_dataset(dataset_name, dataset, context_field):
         print(f"Chunk size {chunk_size:4d} tokens: {total_chunks:10d} chunks")
 
 
-# 1. SQuAD
-print("\nLoading SQuAD...")
-squad_dataset = load_dataset("squad", split="train")
-analyze_dataset("SQuAD", squad_dataset, "context")
+# # 1. SQuAD
+# print("\nLoading SQuAD...")
+# squad_dataset = load_dataset("squad", split="train")
+# analyze_dataset("SQuAD", squad_dataset, "context")
 
-# 2. MS MARCO - Passage Ranking
-print("\nLoading MS MARCO Passage Ranking...")
-# Config 'v1.1' is the standard passage ranking config
-msmarco_passage_dataset = load_dataset("ms_marco", "v1.1", split="train")
-analyze_dataset("MS MARCO Passage Ranking", msmarco_passage_dataset, "passages")
+# # 2. MS MARCO - Passage Ranking
+# print("\nLoading MS MARCO Passage Ranking...")
+# # Config 'v1.1' is the standard passage ranking config
+# msmarco_passage_dataset = load_dataset("ms_marco", "v1.1", split="train")
+# analyze_dataset("MS MARCO Passage Ranking", msmarco_passage_dataset, "passages")
 
-# 3. MS MARCO - Document Ranking
-print("\nLoading MS MARCO Passage Ranking v2.1...")
-# Config 'v2.1' is the updated passage ranking config in the ms_marco dataset
-msmarco_doc_dataset = load_dataset("ms_marco", "v2.1", split="train")
-analyze_dataset("MS MARCO Passage Ranking v2.1", msmarco_doc_dataset, "passages")
+# # 3. MS MARCO - Document Ranking
+# print("\nLoading MS MARCO Passage Ranking v2.1...")
+# # Config 'v2.1' is the updated passage ranking config in the ms_marco dataset
+# msmarco_doc_dataset = load_dataset("ms_marco", "v2.1", split="train")
+# analyze_dataset("MS MARCO Passage Ranking v2.1", msmarco_doc_dataset, "passages")
 
 # # 4. Natural Questions
 # print("\nLoading Natural Questions...")
@@ -94,4 +127,26 @@ analyze_dataset("MS MARCO Passage Ranking v2.1", msmarco_doc_dataset, "passages"
 print("\nLoading TriviaQA...")
 # Config 'rc' is the reading comprehension config
 trivia_qa_dataset = load_dataset("trivia_qa", "rc", split="validation")
-analyze_dataset("TriviaQA", trivia_qa_dataset, "entity_pages")
+inspect_dataset_structure("TriviaQA", trivia_qa_dataset, num_samples=2)
+# analyze_dataset("TriviaQA", trivia_qa_dataset, "entity_pages")
+
+
+# Get the first row
+row = trivia_qa_dataset[0]
+
+print(f"Question: {row['question']}")
+print(f"Answer: {row['answer']['value']}")
+
+# Check Wikipedia Contexts
+if len(row["entity_pages"]["wiki_context"]) > 0:
+    print(f"\nNumber of Wiki Docs: {len(row['entity_pages']['wiki_context'])}")
+    print(
+        f"First Wiki Doc Preview: {row['entity_pages']['wiki_context'][0][:200]}..."
+    )  # First 200 chars
+
+# Check Web Contexts
+if len(row["search_results"]["search_context"]) > 0:
+    print(f"\nNumber of Web Docs: {len(row['search_results']['search_context'])}")
+    print(
+        f"First Web Doc Preview: {row['search_results']['search_context'][0][:200]}..."
+    )
