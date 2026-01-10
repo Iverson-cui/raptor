@@ -4,8 +4,8 @@ set -e
 # Generate a unique log filename (YYYYMMDD_HHMMSS)
 LOG_FILE="run_$(date +'%Y%m%d_%H%M%S').log"
 
-# Redirect all stdout and stderr to the log file
-exec > "$LOG_FILE" 2>&1
+# Duplicate stdout+stderr to terminal and log file
+exec > >(tee -a "$LOG_FILE") 2> >(tee -a "$LOG_FILE" >&2)
 
 echo "=== Start: $(date) ==="
 echo "Log file: $LOG_FILE"
