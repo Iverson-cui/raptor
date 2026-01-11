@@ -6,6 +6,7 @@ import warnings
 import time
 import evaluate
 import argparse
+import json
 from datasets import load_dataset, concatenate_datasets
 
 # Ensure the raptor package is accessible from the test directory
@@ -185,6 +186,8 @@ def evaluate_k_means_on_dataset(
     print_summary=True,
     answer_without_context=False,
     multi_retriever_configs=None,  # New parameter: list of dicts for retrieval benchmarking
+    node_information=False,
+    context_ratio=None,
 ):
     """
     Evaluates K-Means RAPTOR on the specified dataset.
@@ -224,6 +227,7 @@ def evaluate_k_means_on_dataset(
             elif dataset_name == "natural_questions":
                 loaded_splits.append(load_dataset("natural_questions", split=split))
             elif dataset_name == "trivia_qa":
+                # hard code to validation split only due to loading time
                 loaded_splits.append(
                     load_dataset("trivia_qa", "rc", split="validation")
                 )
@@ -311,6 +315,11 @@ def evaluate_k_means_on_dataset(
                 )
                 break
 
+    if context_ratio is not None and 0.0 < context_ratio < 1.0:
+        logging.info(f"Context ratio set to {context_ratio}. Keeping first {context_ratio*100:.1f}% of contexts.")
+        cutoff = int(len(all_contexts) * context_ratio)
+        all_contexts = all_contexts[:cutoff]
+        
     logging.info(f"Tree construction corpus: {len(all_contexts)} unique contexts.")
     logging.info(f"Evaluation target: {len(eval_items)} questions.")
 
@@ -441,6 +450,7 @@ def evaluate_k_means_on_dataset(
         )
         predictions = []
         references = []
+        node_infos = {}
 
         for i, item in enumerate(eval_items):
             question = item["question"]
@@ -457,12 +467,18 @@ def evaluate_k_means_on_dataset(
                         )
                 else:
                     response = RA.answer_question(
-                        question=question, retriever_name=r_name
+                        question=question,
+                        retriever_name=r_name,
+                        return_layer_information=node_information,
                     )
-                    # response can be a string or a tuple (answer, layer information)
-                    pred_answer = (
-                        response[0] if isinstance(response, tuple) else response
-                    )
+
+                    if node_information and isinstance(response, tuple):
+                        pred_answer, layer_info = response
+                        node_infos[item["id"]] = layer_info
+                    else:
+                        pred_answer = (
+                            response[0] if isinstance(response, tuple) else response
+                        )
             except Exception as e:
                 logging.error(f"Error answering question {i} with {r_name}: {e}")
                 pred_answer = ""
@@ -475,6 +491,15 @@ def evaluate_k_means_on_dataset(
                 logging.info(
                     f"Checkpoint ({r_name}): Processed {i + 1}/{len(eval_items)} questions."
                 )
+
+        if node_information:
+            fname = f"node_info_{dataset_name}_{r_name}.json"
+            try:
+                with open(fname, "w") as f:
+                    json.dump(node_infos, f, indent=4)
+                logging.info(f"Saved node info to {fname}")
+            except Exception as e:
+                logging.error(f"Failed to save node info: {e}")
 
         # this step will automatically normalize the answers and predictions
         results = squad_metric.compute(predictions=predictions, references=references)
@@ -519,6 +544,12 @@ if __name__ == "__main__":
     parser.add_argument("--fulltest", action="store_true")
     parser.add_argument("--freetest", action="store_true")
     parser.add_argument("--no_context", action="store_true")
+    parser.add_argument(
+        "--node_info", action="store_true", help="Save layer info for each question"
+    )
+    parser.add_argument(
+        "--context_ratio", type=float, help="Ratio of contexts to use (0.0 - 1.0)"
+    )
 
     # New arguments for customizing parameters
     parser.add_argument("--chunk_size", type=int, help="Chunk size for tree building")
@@ -593,6 +624,8 @@ if __name__ == "__main__":
                         tr_top_k=config["tr_top_k"],
                         print_summary=False,
                         answer_without_context=args.no_context,
+                        node_information=args.node_info,
+                        context_ratio=args.context_ratio,
                     )
                     all_results.append((config["tb_max_tokens"], res))
                 except Exception as e:
@@ -611,6 +644,8 @@ if __name__ == "__main__":
                         tb_max_tokens=tokens,
                         print_summary=False,
                         answer_without_context=args.no_context,
+                        node_information=args.node_info,
+                        context_ratio=args.context_ratio,
                     )
                     all_results.append((tokens, res))
                 except Exception as e:
@@ -673,6 +708,8 @@ if __name__ == "__main__":
             multi_retriever_configs=multi_retriever_configs,
             answer_without_context=args.no_context,
             print_summary=False,
+            node_information=args.node_info,
+            context_ratio=args.context_ratio,
         )
 
         print("\n" + "=" * 100)
@@ -710,4 +747,6 @@ if __name__ == "__main__":
             n_clusters=args.n_clusters,
             tr_top_k_clusters=args.top_k_clusters,
             tr_top_k=args.top_k,
+            node_information=args.node_info,
+            context_ratio=args.context_ratio,
         )

@@ -140,10 +140,7 @@ class KMeansRetriever(BaseRetriever):
 
         if return_layer_information:
             # Leaves are always Layer 0
-            layer_information = [
-                {"node_index": node.index, "layer_number": 0}
-                for node in final_selected_nodes
-            ]
+            layer_information = [node.index for node in final_selected_nodes]
             return context, layer_information
 
         return context

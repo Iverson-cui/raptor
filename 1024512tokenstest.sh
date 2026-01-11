@@ -22,10 +22,14 @@ echo "Log file: $LOG_FILE"
 # python test/test_k_mean_datasets.py --dataset trivia_qa --freetest --chunk_size 512 --n_clusters 1859 --k_clusters_list 20 40 60 80 90 110 --k_chunks_list 4 4 4 4 4 4
 
 echo "Running 1024 tokens test"
-python test/test_k_mean_datasets.py --dataset trivia_qa --freetest --chunk_size 1024 --n_clusters 779 --k_clusters_list 8 15 23 30 35 40 50 60 70 80 90 --k_chunks_list 2 2 2 2 2 2 2 2 2 2 2
+python test/test_k_mean_datasets.py --dataset trivia_qa --freetest --node_info --chunk_size 1024 --n_clusters 779 --k_clusters_list 8 15 23 30 35 40 50 60 70 80 90 --k_chunks_list 2 2 2 2 2 2 2 2 2 2 2
+
+# # half dataset to reduce time
+# echo "Running 1024 tokens test(half dataset)"
+# python test/test_k_mean_datasets.py --dataset trivia_qa --freetest --context_ratio 0.5 --chunk_size 1024 --n_clusters 390 --k_clusters_list 4 7 12 15 18 20 25 30 35 40 45 --k_chunks_list 2 2 2 2 2 2 2 2 2 2 2
 
 echo "Running 512 tokens test"
-python test/test_k_mean_datasets.py --dataset trivia_qa --freetest --chunk_size 512 --n_clusters 1859 --k_clusters_list 20 40 60 80 90 110 130 150 170 200 --k_chunks_list 4 4 4 4 4 4 4 4 4 4
+python test/test_k_mean_datasets.py --dataset trivia_qa --freetest --node_info --chunk_size 512 --n_clusters 1859 --k_clusters_list 20 40 60 80 90 110 130 150 170 200 --k_chunks_list 4 4 4 4 4 4 4 4 4 4
 
 # echo "Running 2048 tokens test"
 # python test/test_k_mean_datasets.py --dataset trivia_qa --freetest --chunk_size 2048 --n_clusters 492 --k_clusters_list 5 10 15 20 25 30 --k_chunks_list 1 1 1 1 1 1
