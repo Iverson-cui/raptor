@@ -319,7 +319,7 @@ def evaluate_k_means_on_dataset(
         logging.info(f"Context ratio set to {context_ratio}. Keeping first {context_ratio*100:.1f}% of contexts.")
         cutoff = int(len(all_contexts) * context_ratio)
         all_contexts = all_contexts[:cutoff]
-        
+
     logging.info(f"Tree construction corpus: {len(all_contexts)} unique contexts.")
     logging.info(f"Evaluation target: {len(eval_items)} questions.")
 
@@ -493,7 +493,7 @@ def evaluate_k_means_on_dataset(
                 )
 
         if node_information:
-            fname = f"node_info_{dataset_name}_{r_name}.json"
+            fname = f"node_info_{dataset_name}_{tb_max_tokens}_{r_name}.json"
             try:
                 with open(fname, "w") as f:
                     json.dump(node_infos, f, indent=4)
