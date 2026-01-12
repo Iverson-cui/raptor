@@ -427,7 +427,9 @@ def evaluate_k_means_on_dataset(
                 top_k=k_chunks,
                 context_embedding_model=RA.config.tree_retriever_config.context_embedding_model,
             )
+            # self.retriever is a dict of retriever objects
             RA.add_retriever(name, config, retriever_type="kmeans")
+            # retriever_names is a list of strings representing all of the retrievers we have
             retriever_names.append(name)
 
     # Verify Tree

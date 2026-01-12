@@ -55,7 +55,7 @@ class KMeansRetriever(BaseRetriever):
         start_layer: int = None,  # Ignored, kept for compatibility
         num_layers: int = None,  # Ignored, kept for compatibility
         top_k: int = 10,
-        max_tokens: int = 3500,
+        max_tokens: int = 5000,
         collapse_tree: bool = True,  # Ignored, specific logic used
         return_layer_information: bool = False,
     ) -> str:
@@ -126,7 +126,7 @@ class KMeansRetriever(BaseRetriever):
         final_selected_nodes = []
         total_tokens = 0
 
-        for idx in chunk_indices[:top_k]:
+        for idx in chunk_indices[: self.top_k]:
             node = candidate_chunks[idx]
             node_tokens = len(self.tokenizer.encode(node.text))
 
