@@ -250,8 +250,8 @@ def evaluate_k_means_on_dataset(
     # Configuration for models
     if not local_test:
         qa_memory_map = {
-            0: "0GiB",
-            1: "45GiB",
+            0: "25GiB",
+            1: "35GiB",
             2: "45GiB",
             3: "0GiB",
             4: "0GiB",
@@ -271,7 +271,7 @@ def evaluate_k_means_on_dataset(
         # Load WHOLE dataset for tree building as requested
         # For full run, we iterate the whole dataset
         num_eval_questions_target = 150
-        # max_contexts_to_process = 100
+        max_contexts_to_process = None
 
     # Collect Data (Synchronized Loop)
     logging.info("Gathering data (contexts and questions)...")
