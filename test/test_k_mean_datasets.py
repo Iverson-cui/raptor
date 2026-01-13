@@ -251,8 +251,8 @@ def evaluate_k_means_on_dataset(
     if not local_test:
         qa_memory_map = {
             0: "0GiB",
-            1: "0GiB",
-            2: "0GiB",
+            1: "45GiB",
+            2: "45GiB",
             3: "0GiB",
             4: "0GiB",
             5: "45GiB",
