@@ -264,13 +264,14 @@ def evaluate_k_means_on_dataset(
 
     # Define slicing parameters
     if local_test:
-        num_eval_questions_target = 5
+        num_eval_questions_target = 100
+        max_contexts_to_process = 200
         # In local test, we gather contexts only for these 5 questions
     else:
         # Load WHOLE dataset for tree building as requested
         # For full run, we iterate the whole dataset
-        num_eval_questions_target = 200
-        max_contexts_to_process = None
+        num_eval_questions_target = 5
+        max_contexts_to_process = 100
 
     # Collect Data (Synchronized Loop)
     logging.info("Gathering data (contexts and questions)...")
@@ -327,7 +328,8 @@ def evaluate_k_means_on_dataset(
     if local_test:
         logging.info("Initializing LOCAL models: UnifiedQA (QA) & SBert (Embedding)...")
         qa_model = UnifiedQAModel()
-        embedding_model = SBertEmbeddingModel(device=embedding_device)
+        # embedding_model = SBertEmbeddingModel(device=embedding_device)
+        embedding_model = BGEM3Model(device=embedding_device)
     else:
         logging.info(
             f"Initializing SERVER models: {model_name} (QA) & SBert (Embedding)..."
@@ -345,9 +347,9 @@ def evaluate_k_means_on_dataset(
 
     # Configure for K-Means
     if local_test:
-        default_tokens = 200
-        default_n_clusters = 5
-        default_tr_top_k_clusters = 2
+        default_tokens = 128
+        default_n_clusters = 3
+        default_tr_top_k_clusters = 3
         default_tr_top_k = 5
     else:
         if dataset_name in ["squad", "squad_v2"]:
