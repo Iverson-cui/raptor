@@ -22,7 +22,7 @@ echo "Running 512 tokens test"
 python test/test_k_mean_datasets.py --dataset trivia_qa --freetest --node_info --chunk_size 512 --n_clusters 1859 --k_clusters_list 40 80 150 180 --k_chunks_list 8 8 8 8
 
 echo "Running 1024 tokens test"
-python test/test_k_mean_datasets.py --dataset trivia_qa --freetest --node_info --chunk_size 1024 --n_clusters 779 --k_clusters_list 20 40 60 80 --k_chunks_list 8 8 8 8
+python test/test_k_mean_datasets.py --dataset trivia_qa --freetest --node_info --chunk_size 1024 --n_clusters 779 --k_clusters_list 20 40 60 80 --k_chunks_list 4 4 4 4
 
 # # half dataset to reduce time
 # echo "Running 1024 tokens test(half dataset)"
@@ -31,8 +31,8 @@ python test/test_k_mean_datasets.py --dataset trivia_qa --freetest --node_info -
 # echo "Running 512 tokens test"
 # python test/test_k_mean_datasets.py --dataset trivia_qa --freetest --node_info --chunk_size 512 --n_clusters 1859 --k_clusters_list 40 80 150 180 --k_chunks_list 4 4 4 4
 
-echo "Running 2048 tokens test"
-python test/test_k_mean_datasets.py --dataset trivia_qa --freetest --node_info --chunk_size 2048 --n_clusters 492 --k_clusters_list 10 20 30 40 --k_chunks_list 2 2 2 2
+# echo "Running 2048 tokens test"
+# python test/test_k_mean_datasets.py --dataset trivia_qa --freetest --node_info --chunk_size 2048 --n_clusters 492 --k_clusters_list 10 20 30 40 --k_chunks_list 2 2 2 2
 # python test/test_k_mean_datasets.py --dataset trivia_qa --freetest --node_info --chunk_size 2048 --n_clusters 5 --k_clusters_list 3 4 --k_chunks_list 2 2
 
 
