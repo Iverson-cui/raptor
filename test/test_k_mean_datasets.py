@@ -270,8 +270,8 @@ def evaluate_k_means_on_dataset(
     else:
         # Load WHOLE dataset for tree building as requested
         # For full run, we iterate the whole dataset
-        num_eval_questions_target = 150
-        max_contexts_to_process = None
+        num_eval_questions_target = 5
+        max_contexts_to_process = 100
 
     # Collect Data (Synchronized Loop)
     logging.info("Gathering data (contexts and questions)...")
@@ -478,7 +478,7 @@ def evaluate_k_means_on_dataset(
 
                     if node_information and isinstance(response, tuple):
                         pred_answer, layer_info = response
-                        print(f"Layer info for question ID {item['id']}: {layer_info}")
+                        # print(f"Layer info for question ID {item['id']}: {layer_info}")
                         node_infos[item["id"]] = layer_info
                     else:
                         pred_answer = (
