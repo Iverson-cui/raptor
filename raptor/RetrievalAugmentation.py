@@ -326,7 +326,7 @@ class RetrievalAugmentation:
         start_layer: int = None,
         num_layers: int = None,
         top_k: int = 10,
-        max_tokens: int = 3500,
+        max_tokens: int = 5000,
         collapse_tree: bool = True,
         return_layer_information: bool = True,
     ):
@@ -371,7 +371,7 @@ class RetrievalAugmentation:
         top_k: int = 10,
         start_layer: int = None,
         num_layers: int = None,
-        max_tokens: int = 3500,
+        max_tokens: int = 5000,
         collapse_tree: bool = False,
         return_layer_information: bool = False,
     ):
