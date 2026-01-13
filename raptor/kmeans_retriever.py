@@ -125,9 +125,9 @@ class KMeansRetriever(BaseRetriever):
         # 5. Pick top-K closest chunks
         final_selected_nodes = []
         total_tokens = 0
-        print(f"Selecting up to {self.top_k} chunks with max {max_tokens} tokens.")
+        # print(f"Selecting up to {self.top_k} chunks with max {max_tokens} tokens.")
         for idx in chunk_indices[: self.top_k]:
-            print(f"Considering chunk index {idx}.")
+            # print(f"Considering chunk index {idx}.")
             node = candidate_chunks[idx]
             node_tokens = len(self.tokenizer.encode(node.text))
 
@@ -135,14 +135,14 @@ class KMeansRetriever(BaseRetriever):
                 break
 
             final_selected_nodes.append(node)
-            print(
-                f"Selected chunk index {idx} with {node_tokens} tokens. Total so far: {total_tokens + node_tokens} tokens and {len(final_selected_nodes)} chunks."
-            )
+            # print(
+            #     f"Selected chunk index {idx} with {node_tokens} tokens. Total so far: {total_tokens + node_tokens} tokens and {len(final_selected_nodes)} chunks."
+            # )
             total_tokens += node_tokens
 
-        print(
-            f"Final selection: {len(final_selected_nodes)} chunks with total {total_tokens} tokens."
-        )
+        # print(
+        #     f"Final selection: {len(final_selected_nodes)} chunks with total {total_tokens} tokens."
+        # )
         context = get_text(final_selected_nodes)
 
         if return_layer_information:
