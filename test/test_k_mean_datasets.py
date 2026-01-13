@@ -478,6 +478,7 @@ def evaluate_k_means_on_dataset(
 
                     if node_information and isinstance(response, tuple):
                         pred_answer, layer_info = response
+                        print(f"Layer info for question ID {item['id']}: {layer_info}")
                         node_infos[item["id"]] = layer_info
                     else:
                         pred_answer = (
