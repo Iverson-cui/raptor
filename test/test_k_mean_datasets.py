@@ -270,8 +270,8 @@ def evaluate_k_means_on_dataset(
     else:
         # Load WHOLE dataset for tree building as requested
         # For full run, we iterate the whole dataset
-        num_eval_questions_target = 5
-        max_contexts_to_process = 100
+        num_eval_questions_target = 200
+        max_contexts_to_process = None
 
     # Collect Data (Synchronized Loop)
     logging.info("Gathering data (contexts and questions)...")
