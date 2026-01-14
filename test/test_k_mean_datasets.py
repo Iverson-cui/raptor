@@ -250,15 +250,15 @@ def evaluate_k_means_on_dataset(
     # Configuration for models
     if not local_test:
         qa_memory_map = {
-            0: "0GiB",
+            0: "45GiB",
             1: "0GiB",
             2: "0GiB",
             3: "0GiB",
             4: "0GiB",
             5: "0GiB",
-            6: "45GiB",
+            6: "0GiB",
         }
-        embedding_device = "cuda:6"
+        embedding_device = "cuda:0"
     else:
         embedding_device = "mps"
 
