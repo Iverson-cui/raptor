@@ -160,23 +160,38 @@ class LocalServerQAModel(BaseQAModel):
 
 
 if __name__ == "__main__":
-    # Example deployment test
-    # Replace with the actual model folder name on the server
+    # Default model path
     MODEL_NAME = "/opt/pretrained_models/Qwen2-7B-Instruct"
 
     try:
-        print(f"--- Starting Local Deployment Test for {MODEL_NAME} ---")
+        print(f"--- Loading Model: {MODEL_NAME} ---")
         qa_engine = LocalServerQAModel(model_path=MODEL_NAME)
+        print("Model loaded successfully. Entering interactive mode.")
+        print("Type 'exit' or 'quit' to stop.")
 
-        test_context = "RAPTOR is a recursive abstractive processing system for tree-organized retrieval."
-        test_question = "What does RAPTOR stand for in this context?"
+        while True:
+            print("\n" + "="*30)
+            question = input("Enter your question: ").strip()
+            if question.lower() in ["exit", "quit"]:
+                print("Exiting...")
+                break
+            
+            if not question:
+                continue
 
-        print(f"Question: {test_question}")
-        answer = qa_engine.answer_question(test_context, test_question)
-        print(f"Answer: {answer}")
+            # Optional context input
+            context = input("Enter context (optional, press Enter to skip): ").strip()
+
+            print("\nGenerating answer...")
+            if context:
+                answer = qa_engine.answer_question(context, question)
+            else:
+                answer = qa_engine.answer_question_without_contexts(question)
+
+            print(f"\nAnswer:\n{answer}")
 
     except Exception as e:
-        print(f"\n[Deployment Info]: {e}")
+        print(f"\n[Error]: {e}")
         print(
             "Note: This script is designed to run on the server. If run locally, ensure the model exists or ignore the path error."
         )
