@@ -173,7 +173,8 @@ def evaluate_perfect_recall(
             question_embedding, chunk_embeddings, distance_metric="cosine"
         )
         sorted_indices = indices_of_nearest_neighbors_from_distances(distances)
-
+        print()
+        print(f"Number of chunks: {len(chunks)}")
         # Select top-k indices (smallest distance = closest)
         top_k_indices = sorted_indices[:top_k]
         top_k_chunks = [chunks[idx] for idx in top_k_indices]
