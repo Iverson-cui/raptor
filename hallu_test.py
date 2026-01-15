@@ -57,11 +57,11 @@ class LocalServerQAModel(BaseQAModel):
                 device_map=device_map,
                 max_memory=max_memory,
                 trust_remote_code=True,
-                torch_dtype=dtype,
+                dtype=dtype,
             )
         except Exception as e:
             print(
-                f"Initial load with torch_dtype failed: {e}. Retrying with default precision..."
+                f"Initial load with dtype failed: {e}. Retrying with default precision..."
             )
             self.model = AutoModelForCausalLM.from_pretrained(
                 self.model_path,
@@ -180,7 +180,17 @@ if __name__ == "__main__":
                 continue
 
             # Optional context input
-            context = input("Enter context (optional, press Enter to skip): ").strip()
+            print("Enter context (optional). Type 'END' on a new line to finish:")
+            context_lines = []
+            while True:
+                try:
+                    line = input()
+                    if line.strip() == "END":
+                        break
+                    context_lines.append(line)
+                except EOFError:
+                    break
+            context = "\n".join(context_lines).strip()
 
             print("\nGenerating answer...")
             if context:
