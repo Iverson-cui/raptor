@@ -197,55 +197,60 @@ def run_experiment(
     target_chunk_idx=None,
     distance_metric="cosine",
     context_limit=None,
+    save_tree_path=None,
+    load_tree_path=None
 ):
     logging.info(
         f"Starting experiment: Dataset={dataset_name}, Local={local_test}, Metric={distance_metric}"
     )
 
-    # 1. Load Data
-    splits = ["validation"] if local_test else ["train", "validation"]
-    loaded_splits = []
+    # 1. Load Data (Only if not loading tree)
+    if not load_tree_path:
+        splits = ["validation"] if local_test else ["train", "validation"]
+        loaded_splits = []
 
-    try:
-        for split in splits:
-            if dataset_name == "trivia_qa":
-                # if trivia_qa, only use validation split to keep size manageable
-                loaded_splits.append(
-                    load_dataset("trivia_qa", "rc", split="validation")
-                )  # TriviaQA train is huge
-            else:
-                loaded_splits.append(load_dataset(dataset_name, split=split))
-    except Exception as e:
-        logging.error(f"Error loading dataset {dataset_name}: {e}")
-        return
+        try:
+            for split in splits:
+                if dataset_name == "trivia_qa":
+                    # if trivia_qa, only use validation split to keep size manageable
+                    loaded_splits.append(
+                        load_dataset("trivia_qa", "rc", split="validation")
+                    )  # TriviaQA train is huge
+                else:
+                    loaded_splits.append(load_dataset(dataset_name, split=split))
+        except Exception as e:
+            logging.error(f"Error loading dataset {dataset_name}: {e}")
+            return
 
-    if len(loaded_splits) > 1:
-        dataset = concatenate_datasets(loaded_splits)
+        if len(loaded_splits) > 1:
+            dataset = concatenate_datasets(loaded_splits)
+        else:
+            dataset = loaded_splits[0]
+
+        extract_contexts_fn = get_dataset_processors(dataset_name)
+
+        all_contexts = []
+        seen_contexts = set()
+
+        # how many chunks to consider for the whole database
+        max_contexts = 200 if local_test else (context_limit if context_limit else 50000)
+
+        logging.info(f"Gathering contexts (Limit: {max_contexts})...")
+        for item in dataset:
+            contexts = extract_contexts_fn(item)
+            for ctx in contexts:
+                if ctx not in seen_contexts:
+                    all_contexts.append(ctx)
+                    seen_contexts.add(ctx)
+                    if len(all_contexts) >= max_contexts:
+                        break
+            if len(all_contexts) >= max_contexts:
+                break
+
+        full_corpus = "\n\n".join(all_contexts)
+        logging.info(f"Corpus prepared with {len(all_contexts)} unique contexts.")
     else:
-        dataset = loaded_splits[0]
-
-    extract_contexts_fn = get_dataset_processors(dataset_name)
-
-    all_contexts = []
-    seen_contexts = set()
-
-    # how many chunks to consider for the whole database
-    max_contexts = 200 if local_test else (context_limit if context_limit else 50000)
-
-    logging.info(f"Gathering contexts (Limit: {max_contexts})...")
-    for item in dataset:
-        contexts = extract_contexts_fn(item)
-        for ctx in contexts:
-            if ctx not in seen_contexts:
-                all_contexts.append(ctx)
-                seen_contexts.add(ctx)
-                if len(all_contexts) >= max_contexts:
-                    break
-        if len(all_contexts) >= max_contexts:
-            break
-
-    full_corpus = "\n\n".join(all_contexts)
-    logging.info(f"Corpus prepared with {len(all_contexts)} unique contexts.")
+        logging.info(f"Loading tree from {load_tree_path}. Skipping dataset loading.")
 
     # 2. Initialize Models
     if local_test:
@@ -258,8 +263,7 @@ def run_experiment(
         embedding_model = BGEM3Model(device=embedding_device)
         qa_model = UnifiedQAModel()
 
-    # 3. Build Tree
-    logging.info("Building RAPTOR Tree...")
+    # 3. Build or Load Tree
     # Adjust n_clusters if too small for local test
     if local_test:
         n_clusters = min(n_clusters, 5)
@@ -274,8 +278,17 @@ def run_experiment(
         tb_max_tokens=chunk_size,
     )
 
-    RA = RetrievalAugmentation(config=RAC)
-    RA.add_documents(full_corpus, use_multithreading=not local_test)
+    if load_tree_path:
+        logging.info(f"Loading RAPTOR Tree from {load_tree_path}...")
+        RA = RetrievalAugmentation(config=RAC, tree=load_tree_path)
+    else:
+        logging.info("Building RAPTOR Tree...")
+        RA = RetrievalAugmentation(config=RAC)
+        RA.add_documents(full_corpus, use_multithreading=not local_test)
+        
+        if save_tree_path:
+            logging.info(f"Saving RAPTOR Tree to {save_tree_path}...")
+            RA.save(save_tree_path)
 
     leaf_nodes = list(RA.tree.leaf_nodes.values())
     if not leaf_nodes:
@@ -341,6 +354,18 @@ if __name__ == "__main__":
         default=None,
         help="Limit number of contexts (for server mode)",
     )
+    parser.add_argument(
+        "--save_tree",
+        type=str,
+        default=None,
+        help="Path to save the built tree (pickle format)",
+    )
+    parser.add_argument(
+        "--load_tree",
+        type=str,
+        default=None,
+        help="Path to load a pre-built tree (pickle format)",
+    )
 
     args = parser.parse_args()
 
@@ -357,6 +382,8 @@ if __name__ == "__main__":
             top_k_chunks=args.top_k_chunks,
             distance_metric=args.metric,
             context_limit=args.limit,
+            save_tree_path=args.save_tree,
+            load_tree_path=args.load_tree
         )
     else:
         # Local defaults (or explicit local flag)
@@ -369,4 +396,6 @@ if __name__ == "__main__":
             top_k_chunks=args.top_k_chunks,
             distance_metric=args.metric,
             context_limit=args.limit,
+            save_tree_path=args.save_tree,
+            load_tree_path=args.load_tree
         )
