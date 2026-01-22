@@ -233,7 +233,7 @@ def run_experiment(
         seen_contexts = set()
 
         # how many chunks to consider for the whole database
-        max_contexts = 200 if local_test else (context_limit if context_limit else 50000)
+        max_contexts = 200 if local_test else (context_limit if context_limit else None)
 
         logging.info(f"Gathering contexts (Limit: {max_contexts})...")
         for item in dataset:
@@ -242,9 +242,9 @@ def run_experiment(
                 if ctx not in seen_contexts:
                     all_contexts.append(ctx)
                     seen_contexts.add(ctx)
-                    if len(all_contexts) >= max_contexts:
+                    if max_contexts is not None and len(all_contexts) >= max_contexts:
                         break
-            if len(all_contexts) >= max_contexts:
+            if max_contexts is not None and len(all_contexts) >= max_contexts:
                 break
 
         full_corpus = "\n\n".join(all_contexts)
@@ -285,7 +285,7 @@ def run_experiment(
         logging.info("Building RAPTOR Tree...")
         RA = RetrievalAugmentation(config=RAC)
         RA.add_documents(full_corpus, use_multithreading=not local_test)
-        
+
         if save_tree_path:
             logging.info(f"Saving RAPTOR Tree to {save_tree_path}...")
             RA.save(save_tree_path)
