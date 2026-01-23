@@ -313,7 +313,7 @@ def run_experiment(
 
     # 4. Select Target Chunk
     if target_chunk_idx is None or target_chunk_idx >= len(leaf_nodes):
-        target_chunk_idx = 0  # Default to first
+        target_chunk_idx = random.randint(0, len(leaf_nodes) - 1)
 
     target_node = leaf_nodes[target_chunk_idx]
 
