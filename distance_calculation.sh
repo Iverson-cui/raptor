@@ -36,16 +36,16 @@ echo "Log file: $LOG_FILE"
 # python test/test_k_mean_datasets.py --dataset trivia_qa --freetest --node_info --chunk_size 2048 --n_clusters 5 --k_clusters_list 3 4 --k_chunks_list 2 2
 
 echo "Running 2048 tokens test"
-python test/chunk_merge_distance.py --server --chunk_size=2048 --n_clusters 492 --top_k_clusters 25 --top_k_chunks 50 --load_tree distance_2048tokens.pkl
+# python test/chunk_merge_distance.py --server --chunk_size=2048 --n_clusters 492 --top_k_clusters 25 --top_k_chunks 50 --load_tree distance_2048tokens.pkl
 
 echo "Running 1024 tokens test"
-python test/chunk_merge_distance.py --server --chunk_size=1024 --n_clusters 780 --top_k_clusters 35 --top_k_chunks 50 --load_tree distance_1024tokens.pkl
+# python test/chunk_merge_distance.py --server --chunk_size=1024 --n_clusters 780 --top_k_clusters 35 --top_k_chunks 50 --load_tree distance_1024tokens.pkl
 
 echo "Running 512 tokens test"
-python test/chunk_merge_distance.py --server --chunk_size=512 --n_clusters 1860 --top_k_clusters 90 --top_k_chunks 50 --load_tree distance_512tokens.pkl
+# python test/chunk_merge_distance.py --server --chunk_size=512 --n_clusters 1860 --top_k_clusters 90 --top_k_chunks 50 --load_tree distance_512tokens.pkl
 
 echo "Running 256 tokens test"
-python test/chunk_merge_distance.py --server --chunk_size=256 --n_clusters 2900 --top_k_clusters 130 --top_k_chunks 50 --load_tree distance_256tokens.pkl
+python test/chunk_merge_distance.py --server --chunk_size=256 --n_clusters 2900 --top_k_clusters 130 --top_k_chunks 50 --load_tree distance_256tokens.pkl --overlap_test --num_samples 500
 
 echo "=== End: $(date) ==="
 

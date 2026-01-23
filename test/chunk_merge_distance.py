@@ -203,18 +203,15 @@ def run_cluster_based_search(
     return cluster_results
 
 
-def run_experiment(
+def initialize_raptor(
     dataset_name="squad",
     local_test=True,
     chunk_size=128,
     n_clusters=50,
-    top_k_clusters=5,
-    top_k_chunks=10,
-    target_chunk_idx=None,
-    distance_metric="cosine",
     context_limit=None,
     save_tree_path=None,
-    load_tree_path=None
+    load_tree_path=None,
+    distance_metric="cosine"
 ):
     logging.info(
         f"Starting experiment: Dataset={dataset_name}, Local={local_test}, Metric={distance_metric}"
@@ -236,7 +233,7 @@ def run_experiment(
                     loaded_splits.append(load_dataset(dataset_name, split=split))
         except Exception as e:
             logging.error(f"Error loading dataset {dataset_name}: {e}")
-            return
+            return None
 
         if len(loaded_splits) > 1:
             dataset = concatenate_datasets(loaded_splits)
@@ -306,6 +303,142 @@ def run_experiment(
             logging.info(f"Saving RAPTOR Tree to {save_tree_path}...")
             RA.save(save_tree_path)
 
+    return RA
+
+
+def overlap_calculate(
+    dataset_name="squad",
+    local_test=True,
+    chunk_size=128,
+    n_clusters=50,
+    top_k_clusters=5,
+    top_k_chunks=10,
+    num_samples=100,
+    distance_metric="cosine",
+    context_limit=None,
+    save_tree_path=None,
+    load_tree_path=None
+):
+    RA = initialize_raptor(
+        dataset_name=dataset_name,
+        local_test=local_test,
+        chunk_size=chunk_size,
+        n_clusters=n_clusters,
+        context_limit=context_limit,
+        save_tree_path=save_tree_path,
+        load_tree_path=load_tree_path,
+        distance_metric=distance_metric
+    )
+
+    if RA is None:
+        return
+
+    leaf_nodes = list(RA.tree.leaf_nodes.values())
+    if not leaf_nodes:
+        logging.error("No leaf nodes created!")
+        return
+
+    embedding_model_name = RA.tree_builder_config.cluster_embedding_model
+    total_overlap = 0
+    overlaps = []
+    
+    total_context_prob = 0.0
+    context_probs = []
+
+    logging.info(f"Starting overlap calculation with {num_samples} samples...")
+    
+    if num_samples > len(leaf_nodes):
+        logging.warning(f"Requested samples {num_samples} > available nodes {len(leaf_nodes)}. Using all nodes.")
+        target_indices = list(range(len(leaf_nodes)))
+    else:
+        target_indices = random.sample(range(len(leaf_nodes)), num_samples)
+
+    for i, idx in enumerate(target_indices):
+        target_node = leaf_nodes[idx]
+        logging.info(f"\n--- Sample {i+1}/{len(target_indices)}: Node {target_node.index} ---")
+        
+        bf_results = run_brute_force_search(
+            target_node=target_node,
+            leaf_nodes=leaf_nodes,
+            embedding_model_name=embedding_model_name,
+            distance_metric=distance_metric,
+            top_k_chunks=top_k_chunks,
+        )
+
+        # Context Probability Check (Top 4 closest)
+        # Check if top 4 nearest neighbors are within [idx-10, idx+10]
+        neighbors_to_check = bf_results[:4]
+        all_in_context = True
+        
+        # If fewer than 4 neighbors found (rare but possible with small datasets), 
+        # strict check fails or pass? Assuming fail if we can't verify 4.
+        if len(neighbors_to_check) < 4:
+            all_in_context = False
+        else:
+            for node, _ in neighbors_to_check:
+                if not (idx - 10 <= node.index <= idx + 10):
+                    all_in_context = False
+                    break
+        
+        current_context_prob = 1.0 if all_in_context else 0.0
+        context_probs.append(current_context_prob)
+        total_context_prob += current_context_prob
+        logging.info(f"Context Proximity (Top 4 within +/- 10): {all_in_context}")
+
+        cluster_results = run_cluster_based_search(
+            target_node=target_node,
+            tree=RA.tree,
+            embedding_model_name=embedding_model_name,
+            distance_metric=distance_metric,
+            top_k_clusters=top_k_clusters,
+            top_k_chunks=top_k_chunks,
+        )
+
+        bf_ids = {n.index for n, _ in bf_results}
+        cb_ids = {n.index for n, _ in cluster_results}
+        current_overlap = len(bf_ids.intersection(cb_ids))
+        overlaps.append(current_overlap)
+        total_overlap += current_overlap
+        
+        logging.info(f"Overlap for Node {target_node.index}: {current_overlap}/{top_k_chunks}")
+
+    avg_overlap = total_overlap / len(target_indices) if target_indices else 0
+    avg_context_prob = total_context_prob / len(target_indices) if target_indices else 0
+    
+    logging.info("-" * 40)
+    print(f"\nFinal Average Overlap: {avg_overlap:.4f} (over {len(target_indices)} samples)")
+    print(f"Overlap details: {overlaps}")
+    print(f"\nFinal Average Context Probability: {avg_context_prob:.4f} (over {len(target_indices)} samples)")
+    print(f"Context Probability details: {context_probs}")
+
+
+def run_experiment(
+    dataset_name="squad",
+    local_test=True,
+    chunk_size=128,
+    n_clusters=50,
+    top_k_clusters=5,
+    top_k_chunks=10,
+    target_chunk_idx=None,
+    distance_metric="cosine",
+    context_limit=None,
+    save_tree_path=None,
+    load_tree_path=None
+):
+    RA = initialize_raptor(
+        dataset_name=dataset_name,
+        local_test=local_test,
+        chunk_size=chunk_size,
+        n_clusters=n_clusters,
+        context_limit=context_limit,
+        save_tree_path=save_tree_path,
+        load_tree_path=load_tree_path,
+        distance_metric=distance_metric
+    )
+
+    if RA is None:
+        return
+
     leaf_nodes = list(RA.tree.leaf_nodes.values())
     if not leaf_nodes:
         logging.error("No leaf nodes created!")
@@ -320,7 +453,7 @@ def run_experiment(
     logging.info(f"Target Chunk Index: {target_node.index}")
     logging.info(f"Target Chunk Text (truncated): {target_node.text[:100]}...")
 
-    embedding_model_name = RAC.tree_builder_config.cluster_embedding_model
+    embedding_model_name = RA.tree_builder_config.cluster_embedding_model
 
     # Run Brute Force Search
     bf_results = run_brute_force_search(
@@ -382,12 +515,32 @@ if __name__ == "__main__":
         default=None,
         help="Path to load a pre-built tree (pickle format)",
     )
+    parser.add_argument(
+        "--overlap_test",
+        action="store_true",
+        help="Run overlap calculation on multiple samples",
+    )
+    parser.add_argument(
+        "--num_samples",
+        type=int,
+        default=10,
+        help="Number of samples for overlap calculation",
+    )
 
     args = parser.parse_args()
 
+    if args.overlap_test:
+        func = overlap_calculate
+        kwargs = {
+            "num_samples": args.num_samples
+        }
+    else:
+        func = run_experiment
+        kwargs = {}
+
     if args.server:
         # Server defaults
-        run_experiment(
+        func(
             dataset_name="trivia_qa",
             local_test=False,
             chunk_size=args.chunk_size,
@@ -399,11 +552,12 @@ if __name__ == "__main__":
             distance_metric=args.metric,
             context_limit=args.limit,
             save_tree_path=args.save_tree,
-            load_tree_path=args.load_tree
+            load_tree_path=args.load_tree,
+            **kwargs
         )
     else:
         # Local defaults (or explicit local flag)
-        run_experiment(
+        func(
             dataset_name="squad",
             local_test=True,
             chunk_size=args.chunk_size,
@@ -413,5 +567,6 @@ if __name__ == "__main__":
             distance_metric=args.metric,
             context_limit=args.limit,
             save_tree_path=args.save_tree,
-            load_tree_path=args.load_tree
+            load_tree_path=args.load_tree,
+            **kwargs
         )
