@@ -338,15 +338,15 @@ def overlap_calculate(
         logging.error("No leaf nodes created!")
         return
 
-    embedding_model_name = RA.tree_builder_config.cluster_embedding_model
+    embedding_model_name = RA.config.tree_builder_config.cluster_embedding_model
     total_overlap = 0
     overlaps = []
-    
+
     total_context_prob = 0.0
     context_probs = []
 
     logging.info(f"Starting overlap calculation with {num_samples} samples...")
-    
+
     if num_samples > len(leaf_nodes):
         logging.warning(f"Requested samples {num_samples} > available nodes {len(leaf_nodes)}. Using all nodes.")
         target_indices = list(range(len(leaf_nodes)))
@@ -356,7 +356,7 @@ def overlap_calculate(
     for i, idx in enumerate(target_indices):
         target_node = leaf_nodes[idx]
         logging.info(f"\n--- Sample {i+1}/{len(target_indices)}: Node {target_node.index} ---")
-        
+
         bf_results = run_brute_force_search(
             target_node=target_node,
             leaf_nodes=leaf_nodes,
@@ -369,8 +369,8 @@ def overlap_calculate(
         # Check if top 4 nearest neighbors are within [idx-10, idx+10]
         neighbors_to_check = bf_results[:4]
         all_in_context = True
-        
-        # If fewer than 4 neighbors found (rare but possible with small datasets), 
+
+        # If fewer than 4 neighbors found (rare but possible with small datasets),
         # strict check fails or pass? Assuming fail if we can't verify 4.
         if len(neighbors_to_check) < 4:
             all_in_context = False
@@ -379,7 +379,7 @@ def overlap_calculate(
                 if not (idx - 10 <= node.index <= idx + 10):
                     all_in_context = False
                     break
-        
+
         current_context_prob = 1.0 if all_in_context else 0.0
         context_probs.append(current_context_prob)
         total_context_prob += current_context_prob
@@ -399,12 +399,12 @@ def overlap_calculate(
         current_overlap = len(bf_ids.intersection(cb_ids))
         overlaps.append(current_overlap)
         total_overlap += current_overlap
-        
+
         logging.info(f"Overlap for Node {target_node.index}: {current_overlap}/{top_k_chunks}")
 
     avg_overlap = total_overlap / len(target_indices) if target_indices else 0
     avg_context_prob = total_context_prob / len(target_indices) if target_indices else 0
-    
+
     logging.info("-" * 40)
     print(f"\nFinal Average Overlap: {avg_overlap:.4f} (over {len(target_indices)} samples)")
     print(f"Overlap details: {overlaps}")
