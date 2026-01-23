@@ -365,25 +365,18 @@ def overlap_calculate(
             top_k_chunks=top_k_chunks,
         )
 
-        # Context Probability Check (Top 4 closest)
-        # Check if top 4 nearest neighbors are within [idx-10, idx+10]
+        # Context Proximity Check (Top 4 closest)
+        # Count how many of top 4 nearest neighbors are within [idx-10, idx+10]
         neighbors_to_check = bf_results[:4]
-        all_in_context = True
+        chunks_in_context = 0
 
-        # If fewer than 4 neighbors found (rare but possible with small datasets),
-        # strict check fails or pass? Assuming fail if we can't verify 4.
-        if len(neighbors_to_check) < 4:
-            all_in_context = False
-        else:
-            for node, _ in neighbors_to_check:
-                if not (idx - 10 <= node.index <= idx + 10):
-                    all_in_context = False
-                    break
+        for node, _ in neighbors_to_check:
+            if idx - 10 <= node.index <= idx + 10:
+                chunks_in_context += 1
 
-        current_context_prob = 1.0 if all_in_context else 0.0
-        context_probs.append(current_context_prob)
-        total_context_prob += current_context_prob
-        logging.info(f"Context Proximity (Top 4 within +/- 10): {all_in_context}")
+        context_probs.append(chunks_in_context)
+        total_context_prob += chunks_in_context
+        logging.info(f"Context Proximity (Top 4 within +/- 10): {chunks_in_context}/4")
 
         cluster_results = run_cluster_based_search(
             target_node=target_node,
@@ -408,8 +401,8 @@ def overlap_calculate(
     logging.info("-" * 40)
     print(f"\nFinal Average Overlap: {avg_overlap:.4f} (over {len(target_indices)} samples)")
     print(f"Overlap details: {overlaps}")
-    print(f"\nFinal Average Context Probability: {avg_context_prob:.4f} (over {len(target_indices)} samples)")
-    print(f"Context Probability details: {context_probs}")
+    print(f"\nFinal Average Context Proximity (0-4): {avg_context_prob:.4f} (over {len(target_indices)} samples)")
+    print(f"Context Proximity details: {context_probs}")
 
 
 def run_experiment(
