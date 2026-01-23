@@ -81,6 +81,7 @@ def run_brute_force_search(
 
     # Calculate distance to ALL other leaf nodes
     all_leaf_embeddings = get_embeddings(leaf_nodes, embedding_model_name)
+    num_computations = len(all_leaf_embeddings)
 
     # distances_from_embeddings expects list of list
     dists = distances_from_embeddings(
@@ -100,6 +101,7 @@ def run_brute_force_search(
 
     bf_time = time.time() - start_time
     logging.info(f"Brute Force Time: {bf_time:.6f} seconds")
+    logging.info(f"Number of distance computations: {num_computations}")
 
     print(f"\nTop {top_k_chunks} Closest Chunks (Brute Force):")
     for i, (node, dist) in enumerate(bf_results):
@@ -136,12 +138,17 @@ def run_cluster_based_search(
         return []
 
     cluster_nodes = tree.layer_to_nodes[1]
+    num_clusters = len(cluster_nodes)
+    chunks_per_cluster = [len(node.children) for node in cluster_nodes]
+    avg_chunks = sum(chunks_per_cluster) / num_clusters if num_clusters > 0 else 0
+
     cluster_embeddings = get_embeddings(cluster_nodes, embedding_model_name)
 
     # Distance from target chunk to cluster centroids
     cluster_dists = distances_from_embeddings(
         target_embedding, cluster_embeddings, distance_metric
     )
+    num_centroid_computations = len(cluster_embeddings)
     sorted_cluster_indices = indices_of_nearest_neighbors_from_distances(cluster_dists)
 
     # Select top K clusters
@@ -158,11 +165,13 @@ def run_cluster_based_search(
 
     # Calculate distance only to candidates
     cluster_results = []
+    num_candidate_computations = 0
     if candidate_nodes:
         candidate_embeddings = get_embeddings(candidate_nodes, embedding_model_name)
         candidate_dists = distances_from_embeddings(
             target_embedding, candidate_embeddings, distance_metric
         )
+        num_candidate_computations = len(candidate_nodes)
         sorted_candidate_indices = indices_of_nearest_neighbors_from_distances(
             candidate_dists
         )
@@ -176,7 +185,14 @@ def run_cluster_based_search(
                 break
 
     cb_time = time.time() - start_time
+    total_computations = num_centroid_computations + num_candidate_computations
+
     logging.info(f"Cluster-based Time: {cb_time:.6f} seconds")
+    logging.info(f"Number of clusters: {num_clusters}")
+    logging.info(f"Average chunks per cluster: {avg_chunks:.2f}")
+    logging.info(f"Distance computations (centroids): {num_centroid_computations}")
+    logging.info(f"Distance computations (candidates): {num_candidate_computations}")
+    logging.info(f"Total distance computations: {total_computations}")
 
     print(f"\nTop {top_k_chunks} Closest Chunks (Cluster-based):")
     for i, (node, dist) in enumerate(cluster_results):
@@ -233,7 +249,7 @@ def run_experiment(
         seen_contexts = set()
 
         # how many chunks to consider for the whole database
-        max_contexts = 200 if local_test else (context_limit if context_limit else None)
+        max_contexts = context_limit if context_limit else (200 if local_test else None)
 
         logging.info(f"Gathering contexts (Limit: {max_contexts})...")
         for item in dataset:
@@ -254,8 +270,8 @@ def run_experiment(
 
     # 2. Initialize Models
     if local_test:
-        embedding_device = "mps"
-        embedding_model = SBertEmbeddingModel(device=embedding_device)
+        embedding_device = "cpu"
+        embedding_model = SBertEmbeddingModel(device=embedding_device, model_name="sentence-transformers/multi-qa-mpnet-base-cos-v1")
         # embedding_model = BGEM3Model(device=embedding_device)
         qa_model = UnifiedQAModel()  # Not really used but required by config
     else:
