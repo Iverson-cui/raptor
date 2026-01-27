@@ -1,14 +1,24 @@
 import tiktoken
 from datasets import load_dataset
-from typing import Optional
+from typing import Optional, List
+import argparse
 
 
-def analyze_kilt_wikipedia(limit: Optional[int] = 1000):
+def analyze_kilt_wikipedia(
+    limit: Optional[int] = 1000, chunk_sizes: Optional[List[int]] = None
+):
     """
     Loads KILT Wikipedia in streaming mode, inspects a row,
     and analyzes chunk counts for a subset of the data.
     If limit is None, processes the entire corpus.
+
+    Args:
+        limit: Number of rows to process. If None, processes all rows.
+        chunk_sizes: List of chunk sizes (in tokens) to analyze. Defaults to [256, 512, 1024].
     """
+    if chunk_sizes is None:
+        chunk_sizes = [256, 512, 1024]
+
     print("=" * 80)
     print("KILT Wikipedia Analysis")
     print("=" * 80)
@@ -75,7 +85,6 @@ def analyze_kilt_wikipedia(limit: Optional[int] = 1000):
     else:
         print(f"\nAnalyzing chunk counts for the first {limit} rows...")
     tokenizer = tiktoken.get_encoding("cl100k_base")
-    chunk_sizes = [256, 512, 1024]
 
     unique_contexts = set()
 
@@ -111,4 +120,22 @@ def analyze_kilt_wikipedia(limit: Optional[int] = 1000):
 
 
 if __name__ == "__main__":
-    analyze_kilt_wikipedia(limit=None)
+    parser = argparse.ArgumentParser(
+        description="Analyze KILT Wikipedia dataset and calculate chunk counts."
+    )
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="Number of rows to process. If not specified, processes all rows.",
+    )
+    parser.add_argument(
+        "--chunk-sizes",
+        type=int,
+        nargs="+",
+        default=[256, 512, 1024],
+        help="List of chunk sizes (in tokens) to analyze. Example: --chunk-sizes 256 512 1024",
+    )
+
+    args = parser.parse_args()
+    analyze_kilt_wikipedia(limit=args.limit, chunk_sizes=args.chunk_sizes)
