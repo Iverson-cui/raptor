@@ -3,7 +3,7 @@ import tiktoken
 import json
 
 tokenizer = tiktoken.get_encoding("cl100k_base")  # GPT-4 tokenizer
-chunk_sizes = [128, 256, 512, 1024]
+chunk_sizes = [256, 512, 1024]
 
 
 def inspect_dataset_structure(dataset_name, dataset, num_samples=1):
@@ -13,32 +13,56 @@ def inspect_dataset_structure(dataset_name, dataset, num_samples=1):
     print("=" * 80)
 
     # Get column names
-    print(f"\nTotal Rows: {len(dataset)}")
-    print(f"\nFields ({len(dataset.column_names)}): {dataset.column_names}")
+    try:
+        print(f"\nTotal Rows: {len(dataset)}")
+    except TypeError:
+        print(f"\nTotal Rows: Unknown (Streaming)")
+    
+    fields = None
+    if hasattr(dataset, "column_names"):
+         print(f"\nFields ({len(dataset.column_names)}): {dataset.column_names}")
+         fields = dataset.column_names
+    elif hasattr(dataset, "features"):
+         print(f"\nFields ({len(dataset.features)}): {list(dataset.features.keys())}")
+         fields = list(dataset.features.keys())
+    else:
+         print(f"\nFields: Unknown (Streaming/No metadata)")
 
     # Show sample rows
     print(f"\n--- Sample Row(s) ---")
-    for i in range(min(num_samples, len(dataset))):
-        print(f"\nRow {i}:")
-        row = dataset[i]
-        for field_name in dataset.column_names:
-            value = row[field_name]
-            # Truncate long strings/lists for readability
-            if isinstance(value, str):
-                display_value = value[:200] + "..." if len(value) > 200 else value
-            elif isinstance(value, list):
-                display_value = f"[List with {len(value)} items]"
-                if len(value) > 0:
-                    display_value += f" First item: {str(value[0])[:100]}..."
-            elif isinstance(value, dict):
-                display_value = f"[Dict with keys: {list(value.keys())}]"
-            else:
-                display_value = value
-            print(f"  {field_name}: {display_value}")
+    
+    try:
+        iterator = iter(dataset)
+        for i in range(num_samples):
+            try:
+                row = next(iterator)
+                print(f"\nRow {i}:")
+                
+                # If fields are known, use them, else use row keys
+                row_fields = fields if fields else row.keys()
+                
+                for field_name in row_fields:
+                    value = row.get(field_name)
+                    # Truncate long strings/lists for readability
+                    if isinstance(value, str):
+                        display_value = value[:200] + "..." if len(value) > 200 else value
+                    elif isinstance(value, list):
+                        display_value = f"[List with {len(value)} items]"
+                        if len(value) > 0:
+                            display_value += f" First item: {str(value[0])[:100]}..."
+                    elif isinstance(value, dict):
+                        display_value = f"[Dict with keys: {list(value.keys())}]"
+                    else:
+                        display_value = value
+                    print(f"  {field_name}: {display_value}")
+            except StopIteration:
+                break
+    except Exception as e:
+        print(f"Error inspecting rows: {e}")
     print()
 
 
-def analyze_dataset(dataset_name, dataset, context_field):
+def analyze_dataset(dataset_name, dataset, context_field, limit=None):
     """Analyze a dataset and print chunk statistics."""
     print("\n" + "=" * 80)
     print(f"DATASET: {dataset_name}")
@@ -48,8 +72,13 @@ def analyze_dataset(dataset_name, dataset, context_field):
     unique_contexts = set()
     print("Extracting unique contexts...")
 
+    i = 0
     # Use the column directly if possible for speed, but iterate for dicts/lists
-    for item in dataset:
+    for i, item in enumerate(dataset):
+        if limit and i >= limit:
+            print(f"Reached limit of {limit} items.")
+            break
+            
         val = item.get(context_field)
         if val is None:
             continue
@@ -73,12 +102,24 @@ def analyze_dataset(dataset_name, dataset, context_field):
                 for text in val["wiki_context"]:
                     if text and isinstance(text, str) and text.strip():
                         unique_contexts.add(text)
+            # Handle KILT Wikipedia (text -> paragraph list)
+            elif "paragraph" in val:
+                 for text in val["paragraph"]:
+                    if text and isinstance(text, str) and text.strip():
+                        unique_contexts.add(text)
         elif isinstance(val, list):
             for sub_val in val:
                 if isinstance(sub_val, str) and sub_val.strip():
                     unique_contexts.add(sub_val)
 
-    print(f"Total Rows: {len(dataset)}")
+    try:
+        print(f"Total Rows: {len(dataset)}")
+    except TypeError:
+        # Use i+1 because i is 0-indexed, but if loop didn't run i might be stale or 0
+        # If dataset empty, i might not be defined if using 'enumerate' without start? 
+        # Actually loop var leaks in python, but if loop doesn't enter, i is unbound.
+        pass
+        
     print(f"Unique Contexts: {len(unique_contexts)}")
 
     if not unique_contexts:
@@ -124,31 +165,38 @@ def analyze_dataset(dataset_name, dataset, context_field):
 # analyze_dataset("Natural Questions", nq_dataset, "document")
 
 # 5. TriviaQA
-print("\nLoading TriviaQA...")
-# Config 'rc' is the reading comprehension config
-trivia_qa_dataset = load_dataset("trivia_qa", "rc", split="validation")
-inspect_dataset_structure("TriviaQA", trivia_qa_dataset, num_samples=2)
-# analyze_dataset("TriviaQA", trivia_qa_dataset, "entity_pages")
+# print("\nLoading TriviaQA...")
+# # Config 'rc' is the reading comprehension config
+# trivia_qa_dataset = load_dataset("trivia_qa", "rc", split="validation")
+# inspect_dataset_structure("TriviaQA", trivia_qa_dataset, num_samples=2)
+# # analyze_dataset("TriviaQA", trivia_qa_dataset, "entity_pages")
 
 
 # Get the first row
-row = trivia_qa_dataset[0]
+# row = trivia_qa_dataset[0]
 
-print(f"Question: {row['question']}")
-print(f"Answer: {row['answer']['value']}")
+# print(f"Question: {row['question']}")
+# print(f"Answer: {row['answer']['value']}")
 
-# Check Wikipedia Contexts
-if len(row["entity_pages"]["wiki_context"]) > 0:
-    print(f"\nNumber of Wiki Docs: {len(row['entity_pages']['wiki_context'])}")
-    print(
-        f"First Wiki Doc Preview: {row['entity_pages']['wiki_context'][0][:200]}..."
-    )  # First 200 chars
-else:
-    print("\nNo Wikipedia contexts found.")
+# # Check Wikipedia Contexts
+# if len(row["entity_pages"]["wiki_context"]) > 0:
+#     print(f"\nNumber of Wiki Docs: {len(row['entity_pages']['wiki_context'])}")
+#     print(
+#         f"First Wiki Doc Preview: {row['entity_pages']['wiki_context'][0][:200]}..."
+#     )  # First 200 chars
+# else:
+#     print("\nNo Wikipedia contexts found.")
 
-# Check Web Contexts
-if len(row["search_results"]["search_context"]) > 0:
-    print(f"\nNumber of Web Docs: {len(row['search_results']['search_context'])}")
-    print(
-        f"First Web Doc Preview: {row['search_results']['search_context'][0][:200]}..."
-    )
+# # Check Web Contexts
+# if len(row["search_results"]["search_context"]) > 0:
+#     print(f"\nNumber of Web Docs: {len(row['search_results']['search_context'])}")
+#     print(
+#         f"First Web Doc Preview: {row['search_results']['search_context'][0][:200]}..."
+#     )
+
+# 6. KILT Wikipedia
+print("\nLoading KILT Wikipedia...")
+kilt_dataset = load_dataset("facebook/kilt_wikipedia", split="full", streaming=True, trust_remote_code=True)
+inspect_dataset_structure("KILT Wikipedia", kilt_dataset, num_samples=2)
+# Limit analysis to 1000 items for demonstration/speed as it is streaming and huge
+analyze_dataset("KILT Wikipedia", kilt_dataset, "text", limit=1000)
