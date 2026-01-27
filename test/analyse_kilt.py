@@ -1,7 +1,9 @@
 import tiktoken
 from datasets import load_dataset
+from typing import Optional
 
-def analyze_kilt_wikipedia(limit=1000):
+
+def analyze_kilt_wikipedia(limit: Optional[int] = 1000):
     """
     Loads KILT Wikipedia in streaming mode, inspects a row,
     and analyzes chunk counts for a subset of the data.
@@ -107,5 +109,6 @@ def analyze_kilt_wikipedia(limit=1000):
         total_chunks = sum((tc + chunk_size - 1) // chunk_size for tc in token_counts)
         print(f"Chunk size {chunk_size:4d} tokens: {total_chunks:10d} chunks")
 
+
 if __name__ == "__main__":
-    analyze_kilt_wikipedia(limit=1000)
+    analyze_kilt_wikipedia(limit=None)
