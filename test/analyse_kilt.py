@@ -19,15 +19,15 @@ def analyze_kilt_wikipedia(limit: Optional[int] = 1000):
         # Use the Parquet version from the conversion branch and 'train' split.
         # This is necessary to bypass issues with legacy loading scripts in newer
         # versions of the 'datasets' library.
+        # ds = load_dataset(
+        #     "facebook/kilt_wikipedia",
+        #     revision="refs/convert/parquet",
+        #     split="train",
+        #     streaming=True
+        # )
         ds = load_dataset(
             "facebook/kilt_wikipedia",
-            revision="refs/convert/parquet",
-            split="train",
-            streaming=True
-        )
-        ds = load_dataset(
-            "facebook/kilt_wikipedia",
-            split="train",
+            split="full",
             streaming=True,
             trust_remote_code=True,
         )
