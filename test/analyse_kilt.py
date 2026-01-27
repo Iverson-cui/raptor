@@ -114,7 +114,10 @@ def analyze_kilt_wikipedia(
             for j, para in enumerate(paragraphs):
                 if para and isinstance(para, str) and para.strip():
                     token_count = len(tokenizer.encode(para))
+                    # Truncate paragraph content for display
+                    para_preview = para[:200] + "..." if len(para) > 256 else para
                     print(f"Paragraph {j+1}: {token_count} tokens")
+                    print(f"  Content: {para_preview}")
                     unique_contexts.add(para)
                     valid_paragraphs += 1
 
