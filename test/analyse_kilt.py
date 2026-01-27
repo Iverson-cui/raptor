@@ -103,9 +103,22 @@ def analyze_kilt_wikipedia(
             break
         # The text content is in 'text' -> 'paragraph'
         if 'text' in row and isinstance(row['text'], dict) and 'paragraph' in row['text']:
-            for para in row['text']['paragraph']:
+            # for para in row['text']['paragraph']:
+            # if para and isinstance(para, str) and para.strip():
+            #     unique_contexts.add(para)
+            #     tokenizer.encode(para)
+            paragraphs = row["text"]["paragraph"]
+            valid_paragraphs = 0
+            print(f"\nRow {i+1} has {len(paragraphs)} total paragraphs:")
+
+            for j, para in enumerate(paragraphs):
                 if para and isinstance(para, str) and para.strip():
+                    token_count = len(tokenizer.encode(para))
+                    print(f"Paragraph {j+1}: {token_count} tokens")
                     unique_contexts.add(para)
+                    valid_paragraphs += 1
+
+            print(f"  Valid paragraphs in this row: {valid_paragraphs}")
         pbar.update(1)
 
     pbar.close()
