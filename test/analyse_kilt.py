@@ -134,9 +134,9 @@ def analyze_kilt_wikipedia(
         f"--> Processed {i+1} rows and found {len(unique_contexts)} unique paragraphs."
     )
 
-    if not unique_contexts:
-        print("--> No text contexts found to analyze.")
-        return
+    # if not unique_contexts:
+    #     print("--> No text contexts found to analyze.")
+    #     return
 
     print("\nCalculating token counts...")
     # token_counts = []
