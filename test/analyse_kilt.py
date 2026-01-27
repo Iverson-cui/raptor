@@ -98,6 +98,7 @@ def analyze_kilt_wikipedia(
     else:
         pbar = tqdm(desc="Processing rows", unit="rows")
 
+    total_tokens = 0
     for i, row in enumerate(iterator):
         if limit is not None and i >= limit:
             break
@@ -108,24 +109,23 @@ def analyze_kilt_wikipedia(
             #     unique_contexts.add(para)
             #     tokenizer.encode(para)
             paragraphs = row["text"]["paragraph"]
-            valid_paragraphs = 0
-            print(f"\nRow {i+1} has {len(paragraphs)} total paragraphs:")
-            total_tokens = 0
+            # valid_paragraphs = 0
+            # print(f"\nRow {i+1} has {len(paragraphs)} total paragraphs:")
+            # total_tokens = 0
             for j, para in enumerate(paragraphs):
-
                 if para and isinstance(para, str) and para.strip():
                     token_count = len(tokenizer.encode(para))
                     total_tokens += token_count
                     # Truncate paragraph content for display
-                    para_preview = para[:200] + "..." if len(para) > 256 else para
-                    print(f"  Paragraph {j+1}: {token_count} tokens")
-                    print(f"  Content: {para_preview}")
-                    unique_contexts.add(para)
-                    valid_paragraphs += 1
+                    # para_preview = para[:200] + "..." if len(para) > 256 else para
+                    # print(f"  Paragraph {j+1}: {token_count} tokens")
+                    # print(f"  Content: {para_preview}")
+                    # unique_contexts.add(para)
+                    # valid_paragraphs += 1
 
-            print(
-                f"  Valid paragraphs in this row: {valid_paragraphs}, total tokens: {total_tokens}"
-            )
+            # print(
+            #     f"  Valid paragraphs in this row: {valid_paragraphs}, total tokens: {total_tokens}"
+            # )
         pbar.update(1)
 
     pbar.close()
@@ -139,17 +139,17 @@ def analyze_kilt_wikipedia(
         return
 
     print("\nCalculating token counts...")
-    token_counts = []
-    for ctx in tqdm(unique_contexts, desc="Tokenizing paragraphs", unit="para"):
-        token_counts.append(len(tokenizer.encode(ctx)))
-    print("--> Tokenization complete.")
+    # token_counts = []
+    # for ctx in tqdm(unique_contexts, desc="Tokenizing paragraphs", unit="para"):
+    #     token_counts.append(len(tokenizer.encode(ctx)))
+    # print("--> Tokenization complete.")
 
     print("\n" + "-" * 40)
     print("Chunk Analysis Results:")
     print("-" * 40)
-    for chunk_size in chunk_sizes:
-        total_chunks = sum((tc + chunk_size - 1) // chunk_size for tc in token_counts)
-        print(f"Chunk size {chunk_size:4d} tokens: {total_chunks:10d} chunks")
+    # for chunk_size in chunk_sizes:
+    # total_chunks = sum((tc + chunk_size - 1) // chunk_size for tc in token_counts)
+    print(f"Total tokens across processed rows: {total_tokens}")
 
 
 if __name__ == "__main__":
