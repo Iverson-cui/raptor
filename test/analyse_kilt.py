@@ -5,6 +5,7 @@ def analyze_kilt_wikipedia(limit=1000):
     """
     Loads KILT Wikipedia in streaming mode, inspects a row,
     and analyzes chunk counts for a subset of the data.
+    If limit is None, processes the entire corpus.
     """
     print("=" * 80)
     print("KILT Wikipedia Analysis")
@@ -22,6 +23,12 @@ def analyze_kilt_wikipedia(limit=1000):
             split="train",
             streaming=True
         )
+        ds = load_dataset(
+            "facebook/kilt_wikipedia",
+            split="train",
+            streaming=True,
+            trust_remote_code=True,
+        )
         print("--> Dataset object created successfully.")
     except Exception as e:
         print(f"--> FAILED to load dataset: {e}")
@@ -38,9 +45,16 @@ def analyze_kilt_wikipedia(limit=1000):
         print("--> First row fetched. Contents:")
         for key, value in first_row.items():
             if isinstance(value, str):
-                display_val = f"'{value[:150]}...'") if len(value) > 150 else f"'{value}'"
+                display_val = (
+                    f"'{value[:150]}...'" if len(value) > 150 else f"'{value}'"
+                )
             elif isinstance(value, dict):
-                display_val = f"[Dict with keys: {list(value.keys())}]"
+                dict_str = str(value)
+                display_val = (
+                    f"[Dict: {dict_str[:200]}...]"
+                    if len(dict_str) > 200
+                    else f"[Dict: {dict_str}]"
+                )
             elif isinstance(value, list):
                 display_val = f"[List with {len(value)} items]"
             else:
@@ -54,16 +68,19 @@ def analyze_kilt_wikipedia(limit=1000):
         return
 
     # --- 3. Analyze Chunk Counts ---
-    print(f"\nAnalyzing chunk counts for the first {limit} rows...")
+    if limit is None:
+        print(f"\nAnalyzing chunk counts for ALL rows (no limit)...")
+    else:
+        print(f"\nAnalyzing chunk counts for the first {limit} rows...")
     tokenizer = tiktoken.get_encoding("cl100k_base")
     chunk_sizes = [256, 512, 1024]
-    
+
     unique_contexts = set()
-    
+
     # Re-create iterator to start from the beginning for analysis
     iterator = iter(ds)
     for i, row in enumerate(iterator):
-        if i >= limit:
+        if limit is not None and i >= limit:
             break
         # The text content is in 'text' -> 'paragraph'
         if 'text' in row and isinstance(row['text'], dict) and 'paragraph' in row['text']:
@@ -71,12 +88,14 @@ def analyze_kilt_wikipedia(limit=1000):
                 if para and isinstance(para, str) and para.strip():
                     unique_contexts.add(para)
 
-    print(f"--> Processed {min(i+1, limit)} rows and found {len(unique_contexts)} unique paragraphs.")
+    print(
+        f"--> Processed {i+1} rows and found {len(unique_contexts)} unique paragraphs."
+    )
 
     if not unique_contexts:
         print("--> No text contexts found to analyze.")
         return
-        
+
     print("\nCalculating token counts...")
     token_counts = [len(tokenizer.encode(ctx)) for ctx in unique_contexts]
     print("--> Tokenization complete.")
