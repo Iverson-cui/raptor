@@ -2,6 +2,7 @@ import tiktoken
 from datasets import load_dataset
 from typing import Optional, List
 import argparse
+from tqdm import tqdm
 
 
 def analyze_kilt_wikipedia(
@@ -90,6 +91,13 @@ def analyze_kilt_wikipedia(
 
     # Re-create iterator to start from the beginning for analysis
     iterator = iter(ds)
+
+    # Add progress bar for row processing
+    if limit is not None:
+        pbar = tqdm(total=limit, desc="Processing rows", unit="rows")
+    else:
+        pbar = tqdm(desc="Processing rows", unit="rows")
+
     for i, row in enumerate(iterator):
         if limit is not None and i >= limit:
             break
@@ -98,6 +106,9 @@ def analyze_kilt_wikipedia(
             for para in row['text']['paragraph']:
                 if para and isinstance(para, str) and para.strip():
                     unique_contexts.add(para)
+        pbar.update(1)
+
+    pbar.close()
 
     print(
         f"--> Processed {i+1} rows and found {len(unique_contexts)} unique paragraphs."
@@ -108,7 +119,9 @@ def analyze_kilt_wikipedia(
         return
 
     print("\nCalculating token counts...")
-    token_counts = [len(tokenizer.encode(ctx)) for ctx in unique_contexts]
+    token_counts = []
+    for ctx in tqdm(unique_contexts, desc="Tokenizing paragraphs", unit="para"):
+        token_counts.append(len(tokenizer.encode(ctx)))
     print("--> Tokenization complete.")
 
     print("\n" + "-" * 40)
