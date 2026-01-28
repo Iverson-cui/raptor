@@ -161,7 +161,7 @@ def analyze_dataset(dataset_name, dataset, context_field, limit=None):
 
     for chunk_size in chunk_sizes:
         total_chunks = total_tokens / chunk_size
-        print(f"Chunk size {chunk_size:4d} tokens: {total_chunks:10d} chunks")
+        print(f"Chunk size {chunk_size:4d} tokens: {total_chunks:10,.0f} chunks")
 
 
 def tokenize_text(text):
