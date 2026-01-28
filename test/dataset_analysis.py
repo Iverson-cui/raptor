@@ -6,7 +6,7 @@ from multiprocessing import Pool, cpu_count
 from functools import partial
 
 tokenizer = tiktoken.get_encoding("cl100k_base")  # GPT-4 tokenizer
-chunk_sizes = [256, 512, 1024]
+chunk_sizes = [64, 128]
 
 
 def inspect_dataset_structure(dataset_name, dataset, num_samples=1):
@@ -371,11 +371,11 @@ def analyze_dataset_parallel(
         print(f"Chunk size {chunk_size:4d} tokens: {total_chunks:10,.0f} chunks")
 
 
-# # 1. SQuAD
-# print("\nLoading SQuAD...")
-# squad_dataset = load_dataset("squad", split="train")
-# analyze_dataset("SQuAD", squad_dataset, "context")
-# analyze_dataset_parallel("SQuAD", squad_dataset, "context")
+# 1. SQuAD
+print("\nLoading SQuAD...")
+squad_dataset = load_dataset("squad", split="train")
+analyze_dataset("SQuAD", squad_dataset, "context")
+analyze_dataset_parallel("SQuAD", squad_dataset, "context")
 
 # # 2. MS MARCO - Passage Ranking
 # print("\nLoading MS MARCO Passage Ranking...")
@@ -432,20 +432,20 @@ def analyze_dataset_parallel(
 # We use 'no_index' to avoid downloading the massive index files if we just want text
 # 1. Use the full repository path: "facebook/wiki_dpr"
 # 2. Add 'trust_remote_code=True' (Required for this dataset's script)
-print("\nLoading DPR Wiki...")
-dpr_wiki_dataset = load_dataset(
-    "facebook/wiki_dpr",
-    "psgs_w100.nq.no_index",  # We use 'no_index' to get just the text/embeddings without the massive FAISS file
-    split="train",
-    streaming=True,
-    trust_remote_code=True,
-)
+# print("\nLoading DPR Wiki...")
+# dpr_wiki_dataset = load_dataset(
+#     "facebook/wiki_dpr",
+#     "psgs_w100.nq.no_index",  # We use 'no_index' to get just the text/embeddings without the massive FAISS file
+#     split="train",
+#     streaming=True,
+#     trust_remote_code=True,
+# )
 
 # Option 1: Quick inspection
-inspect_dataset_structure("DPR Wiki", dpr_wiki_dataset, num_samples=2)
+# inspect_dataset_structure("DPR Wiki", dpr_wiki_dataset, num_samples=2)
 
-# Option 2: Sequential analysis with limit (for streaming dataset)
-analyze_dataset("DPR Wiki", dpr_wiki_dataset, "text")
+# # Option 2: Sequential analysis with limit (for streaming dataset)
+# analyze_dataset("DPR Wiki", dpr_wiki_dataset, "text")
 
-# Option 3: Parallel analysis with limit (faster for large samples)
-analyze_dataset_parallel("DPR Wiki", dpr_wiki_dataset, "text")
+# # Option 3: Parallel analysis with limit (faster for large samples)
+# analyze_dataset_parallel("DPR Wiki", dpr_wiki_dataset, "text")
