@@ -73,12 +73,13 @@ def analyze_dataset(dataset_name, dataset, context_field, limit=None):
     print("Extracting unique contexts...")
 
     i = 0
+    total_tokens = 0
     # Use the column directly if possible for speed, but iterate for dicts/lists
     for i, item in enumerate(dataset):
         if limit and i >= limit:
             print(f"Reached limit of {limit} items.")
             break
-            
+
         val = item.get(context_field)
         if val is None:
             continue
@@ -101,30 +102,32 @@ def analyze_dataset(dataset_name, dataset, context_field, limit=None):
             elif "wiki_context" in val:
                 for text in val["wiki_context"]:
                     if text and isinstance(text, str) and text.strip():
-                        unique_contexts.add(text)
+                        # unique_contexts.add(text)
+                        total_tokens += len(tokenizer.encode(text))
             # Handle KILT Wikipedia (text -> paragraph list)
             elif "paragraph" in val:
-                 for text in val["paragraph"]:
+                for text in val["paragraph"]:
                     if text and isinstance(text, str) and text.strip():
-                        unique_contexts.add(text)
+                        # unique_contexts.add(text)
+                        total_tokens += len(tokenizer.encode(text))
         elif isinstance(val, list):
             for sub_val in val:
                 if isinstance(sub_val, str) and sub_val.strip():
-                    unique_contexts.add(sub_val)
-
+                    # unique_contexts.add(sub_val)
+                    total_tokens += len(tokenizer.encode(sub_val))
     try:
         print(f"Total Rows: {len(dataset)}")
     except TypeError:
         # Use i+1 because i is 0-indexed, but if loop didn't run i might be stale or 0
-        # If dataset empty, i might not be defined if using 'enumerate' without start? 
+        # If dataset empty, i might not be defined if using 'enumerate' without start?
         # Actually loop var leaks in python, but if loop doesn't enter, i is unbound.
         pass
-        
-    print(f"Unique Contexts: {len(unique_contexts)}")
 
-    if not unique_contexts:
-        print("No contexts found.")
-        return
+    print(f"total tokens: {total_tokens}")
+
+    # if not unique_contexts:
+    #     print("No contexts found.")
+    #     return
 
     # Chunk analysis
     print("\nCHUNK ANALYSIS:")
@@ -137,7 +140,7 @@ def analyze_dataset(dataset_name, dataset, context_field, limit=None):
         token_counts.append(len(tokenizer.encode(context)))
 
     for chunk_size in chunk_sizes:
-        total_chunks = sum((tc + chunk_size - 1) // chunk_size for tc in token_counts)
+        total_chunks = total_tokens / chunk_size
         print(f"Chunk size {chunk_size:4d} tokens: {total_chunks:10d} chunks")
 
 
@@ -165,11 +168,11 @@ def analyze_dataset(dataset_name, dataset, context_field, limit=None):
 # analyze_dataset("Natural Questions", nq_dataset, "document")
 
 # 5. TriviaQA
-# print("\nLoading TriviaQA...")
-# # Config 'rc' is the reading comprehension config
-# trivia_qa_dataset = load_dataset("trivia_qa", "rc", split="validation")
-# inspect_dataset_structure("TriviaQA", trivia_qa_dataset, num_samples=2)
-# # analyze_dataset("TriviaQA", trivia_qa_dataset, "entity_pages")
+print("\nLoading TriviaQA...")
+# Config 'rc' is the reading comprehension config
+trivia_qa_dataset = load_dataset("trivia_qa", "rc", split="validation")
+inspect_dataset_structure("TriviaQA", trivia_qa_dataset, num_samples=2)
+analyze_dataset("TriviaQA", trivia_qa_dataset, "entity_pages")
 
 
 # Get the first row
@@ -195,8 +198,8 @@ def analyze_dataset(dataset_name, dataset, context_field, limit=None):
 #     )
 
 # 6. KILT Wikipedia
-print("\nLoading KILT Wikipedia...")
-kilt_dataset = load_dataset("facebook/kilt_wikipedia", split="full", streaming=True, trust_remote_code=True)
-inspect_dataset_structure("KILT Wikipedia", kilt_dataset, num_samples=2)
-# Limit analysis to 1000 items for demonstration/speed as it is streaming and huge
-analyze_dataset("KILT Wikipedia", kilt_dataset, "text", limit=1000)
+# print("\nLoading KILT Wikipedia...")
+# kilt_dataset = load_dataset("facebook/kilt_wikipedia", split="full", streaming=True, trust_remote_code=True)
+# inspect_dataset_structure("KILT Wikipedia", kilt_dataset, num_samples=2)
+# # Limit analysis to 1000 items for demonstration/speed as it is streaming and huge
+# analyze_dataset("KILT Wikipedia", kilt_dataset, "text", limit=1000)
