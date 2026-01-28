@@ -90,6 +90,8 @@ def analyze_dataset(dataset_name, dataset, context_field, limit=None):
             if val.strip():
                 unique_contexts.add(val)
         elif isinstance(val, dict):
+            # Handle SQuAD (though context is typically a string field directly)
+            # This handles edge cases where context_field might point to a dict
             # Handle MS MARCO style passages
             if "passage_text" in val:
                 for text in val["passage_text"]:
@@ -118,9 +120,6 @@ def analyze_dataset(dataset_name, dataset, context_field, limit=None):
     try:
         print(f"Total Rows: {len(dataset)}")
     except TypeError:
-        # Use i+1 because i is 0-indexed, but if loop didn't run i might be stale or 0
-        # If dataset empty, i might not be defined if using 'enumerate' without start?
-        # Actually loop var leaks in python, but if loop doesn't enter, i is unbound.
         pass
 
     print(f"Unique Contexts: {len(unique_contexts)}")
@@ -286,6 +285,8 @@ def analyze_dataset_parallel(
                 if val.strip():
                     texts.add(val)
             elif isinstance(val, dict):
+                # Handle SQuAD (though context is typically a string field directly)
+                # This handles edge cases where context_field might point to a dict
                 if "wiki_context" in val:
                     texts.update(
                         [
@@ -302,7 +303,18 @@ def analyze_dataset_parallel(
                             if t and isinstance(t, str) and t.strip()
                         ]
                     )
-                # ... other cases
+                elif "passage_text" in val:
+                    texts.update(
+                        [
+                            t
+                            for t in val["passage_text"]
+                            if t and isinstance(t, str) and t.strip()
+                        ]
+                    )
+                elif "html" in val:
+                    text = val["html"]
+                    if text and isinstance(text, str) and text.strip():
+                        texts.add(text)
             elif isinstance(val, list):
                 texts.update([t for t in val if isinstance(t, str) and t.strip()])
 
@@ -341,10 +353,11 @@ def analyze_dataset_parallel(
         print(f"Chunk size {chunk_size:4d} tokens: {total_chunks:10,.0f} chunks")
 
 
-# # 1. SQuAD
-# print("\nLoading SQuAD...")
-# squad_dataset = load_dataset("squad", split="train")
-# analyze_dataset("SQuAD", squad_dataset, "context")
+# 1. SQuAD
+print("\nLoading SQuAD...")
+squad_dataset = load_dataset("squad", split="train")
+analyze_dataset("SQuAD", squad_dataset, "context")
+analyze_dataset_parallel("SQuAD", squad_dataset, "context")
 
 # # 2. MS MARCO - Passage Ranking
 # print("\nLoading MS MARCO Passage Ranking...")
