@@ -353,11 +353,11 @@ def analyze_dataset_parallel(
         print(f"Chunk size {chunk_size:4d} tokens: {total_chunks:10,.0f} chunks")
 
 
-# 1. SQuAD
-print("\nLoading SQuAD...")
-squad_dataset = load_dataset("squad", split="train")
-analyze_dataset("SQuAD", squad_dataset, "context")
-analyze_dataset_parallel("SQuAD", squad_dataset, "context")
+# # 1. SQuAD
+# print("\nLoading SQuAD...")
+# squad_dataset = load_dataset("squad", split="train")
+# analyze_dataset("SQuAD", squad_dataset, "context")
+# analyze_dataset_parallel("SQuAD", squad_dataset, "context")
 
 # # 2. MS MARCO - Passage Ranking
 # print("\nLoading MS MARCO Passage Ranking...")
@@ -377,20 +377,14 @@ analyze_dataset_parallel("SQuAD", squad_dataset, "context")
 # nq_dataset = load_dataset("natural_questions", split="train")
 # analyze_dataset("Natural Questions", nq_dataset, "document")
 
-# 5. TriviaQA
-print("\nLoading TriviaQA...")
-# Config 'rc' is the reading comprehension config
-trivia_qa_dataset = load_dataset("trivia_qa", "rc", split="train")
-# inspect_dataset_structure("TriviaQA", trivia_qa_dataset, num_samples=2)
-# analyze_dataset("TriviaQA", trivia_qa_dataset, "entity_pages")
-analyze_dataset_parallel("TriviaQA", trivia_qa_dataset, "entity_pages")
+# # 5. TriviaQA
+# print("\nLoading TriviaQA...")
+# # Config 'rc' is the reading comprehension config
+# trivia_qa_dataset = load_dataset("trivia_qa", "rc", split="train")
+# # inspect_dataset_structure("TriviaQA", trivia_qa_dataset, num_samples=2)
+# # analyze_dataset("TriviaQA", trivia_qa_dataset, "entity_pages")
+# analyze_dataset_parallel("TriviaQA", trivia_qa_dataset, "entity_pages")
 
-
-# Get the first row
-# row = trivia_qa_dataset[0]
-
-# print(f"Question: {row['question']}")
-# print(f"Answer: {row['answer']['value']}")
 
 # # Check Wikipedia Contexts
 # if len(row["entity_pages"]["wiki_context"]) > 0:
@@ -414,3 +408,19 @@ analyze_dataset_parallel("TriviaQA", trivia_qa_dataset, "entity_pages")
 # inspect_dataset_structure("KILT Wikipedia", kilt_dataset, num_samples=2)
 # # Limit analysis to 1000 items for demonstration/speed as it is streaming and huge
 # analyze_dataset("KILT Wikipedia", kilt_dataset, "text", limit=1000)
+
+# 7. DPR wiki
+# Load without downloading 70GB immediately
+# We use 'no_index' to avoid downloading the massive index files if we just want text
+dataset = load_dataset(
+    "wiki_dpr", "psgs_w100.nq.no_index", split="train", streaming=True
+)
+
+print("Inspecting first 5 passages...")
+for i, row in enumerate(dataset):
+    if i >= 5:
+        break
+    print(f"--- Passage {i} ---")
+    print(f"Title: {row['title']}")
+    print(f"Text: {row['text'][:100]}...")  # Show first 100 chars
+    print(f"ID: {row['id']}")
