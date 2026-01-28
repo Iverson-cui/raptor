@@ -20,30 +20,30 @@ def inspect_dataset_structure(dataset_name, dataset, num_samples=1):
         print(f"\nTotal Rows: {len(dataset)}")
     except TypeError:
         print(f"\nTotal Rows: Unknown (Streaming)")
-    
+
     fields = None
     if hasattr(dataset, "column_names"):
-         print(f"\nFields ({len(dataset.column_names)}): {dataset.column_names}")
-         fields = dataset.column_names
+        print(f"\nFields ({len(dataset.column_names)}): {dataset.column_names}")
+        fields = dataset.column_names
     elif hasattr(dataset, "features"):
-         print(f"\nFields ({len(dataset.features)}): {list(dataset.features.keys())}")
-         fields = list(dataset.features.keys())
+        print(f"\nFields ({len(dataset.features)}): {list(dataset.features.keys())}")
+        fields = list(dataset.features.keys())
     else:
-         print(f"\nFields: Unknown (Streaming/No metadata)")
+        print(f"\nFields: Unknown (Streaming/No metadata)")
 
     # Show sample rows
     print(f"\n--- Sample Row(s) ---")
-    
+
     try:
         iterator = iter(dataset)
         for i in range(num_samples):
             try:
                 row = next(iterator)
                 print(f"\nRow {i}:")
-                
+
                 # If fields are known, use them, else use row keys
                 row_fields = fields if fields else row.keys()
-                
+
                 for field_name in row_fields:
                     value = row.get(field_name)
                     # Truncate long strings/lists for readability
@@ -75,19 +75,7 @@ def analyze_dataset(dataset_name, dataset, context_field, limit=None):
     unique_contexts = set()
     print("Extracting unique contexts...")
 
-    # Determine if we can get the dataset length for progress bar
-    try:
-        total_rows = len(dataset) if not limit else min(len(dataset), limit)
-        pbar = tqdm(total=total_rows, desc="Processing rows", unit="rows")
-    except (TypeError, AttributeError):
-        # Streaming dataset or no length available
-        if limit:
-            pbar = tqdm(total=limit, desc="Processing rows", unit="rows")
-        else:
-            pbar = tqdm(desc="Processing rows", unit="rows")
-
     i = 0
-    total_tokens = 0
     # Use the column directly if possible for speed, but iterate for dicts/lists
     for i, item in enumerate(dataset):
         if limit and i >= limit:
@@ -96,7 +84,6 @@ def analyze_dataset(dataset_name, dataset, context_field, limit=None):
 
         val = item.get(context_field)
         if val is None:
-            pbar.update(1)
             continue
 
         if isinstance(val, str):
@@ -117,23 +104,16 @@ def analyze_dataset(dataset_name, dataset, context_field, limit=None):
             elif "wiki_context" in val:
                 for text in val["wiki_context"]:
                     if text and isinstance(text, str) and text.strip():
-                        # unique_contexts.add(text)
-                        total_tokens += len(tokenizer.encode(text))
+                        unique_contexts.add(text)
             # Handle KILT Wikipedia (text -> paragraph list)
             elif "paragraph" in val:
                 for text in val["paragraph"]:
                     if text and isinstance(text, str) and text.strip():
-                        # unique_contexts.add(text)
-                        total_tokens += len(tokenizer.encode(text))
+                        unique_contexts.add(text)
         elif isinstance(val, list):
             for sub_val in val:
                 if isinstance(sub_val, str) and sub_val.strip():
-                    # unique_contexts.add(sub_val)
-                    total_tokens += len(tokenizer.encode(sub_val))
-
-        pbar.update(1)
-
-    pbar.close()
+                    unique_contexts.add(sub_val)
 
     try:
         print(f"Total Rows: {len(dataset)}")
@@ -143,11 +123,11 @@ def analyze_dataset(dataset_name, dataset, context_field, limit=None):
         # Actually loop var leaks in python, but if loop doesn't enter, i is unbound.
         pass
 
-    print(f"total tokens: {total_tokens}")
+    print(f"Unique Contexts: {len(unique_contexts)}")
 
-    # if not unique_contexts:
-    #     print("No contexts found.")
-    #     return
+    if not unique_contexts:
+        print("No contexts found.")
+        return
 
     # Chunk analysis
     print("\nCHUNK ANALYSIS:")
@@ -156,12 +136,111 @@ def analyze_dataset(dataset_name, dataset, context_field, limit=None):
     print("Tokenizing unique contexts...")
     # Optimize: tokenize once, then calculate chunks for different sizes
     token_counts = []
-    for context in tqdm(unique_contexts, desc="Tokenizing unique contexts", unit="ctx"):
+    for context in unique_contexts:
         token_counts.append(len(tokenizer.encode(context)))
 
     for chunk_size in chunk_sizes:
-        total_chunks = total_tokens / chunk_size
-        print(f"Chunk size {chunk_size:4d} tokens: {total_chunks:10,.0f} chunks")
+        total_chunks = sum((tc + chunk_size - 1) // chunk_size for tc in token_counts)
+        print(f"Chunk size {chunk_size:4d} tokens: {total_chunks:10d} chunks")
+
+
+# def analyze_dataset(dataset_name, dataset, context_field, limit=None):
+#     """Analyze a dataset and print chunk statistics."""
+#     print("\n" + "=" * 80)
+#     print(f"DATASET: {dataset_name}")
+#     print("=" * 80)
+
+#     # Get unique contexts
+#     unique_contexts = set()
+#     print("Extracting unique contexts...")
+
+#     # Determine if we can get the dataset length for progress bar
+#     try:
+#         total_rows = len(dataset) if not limit else min(len(dataset), limit)
+#         pbar = tqdm(total=total_rows, desc="Processing rows", unit="rows")
+#     except (TypeError, AttributeError):
+#         # Streaming dataset or no length available
+#         if limit:
+#             pbar = tqdm(total=limit, desc="Processing rows", unit="rows")
+#         else:
+#             pbar = tqdm(desc="Processing rows", unit="rows")
+
+#     i = 0
+#     total_tokens = 0
+#     # Use the column directly if possible for speed, but iterate for dicts/lists
+#     for i, item in enumerate(dataset):
+#         if limit and i >= limit:
+#             print(f"Reached limit of {limit} items.")
+#             break
+
+#         val = item.get(context_field)
+#         if val is None:
+#             pbar.update(1)
+#             continue
+
+#         if isinstance(val, str):
+#             if val.strip():
+#                 unique_contexts.add(val)
+#         elif isinstance(val, dict):
+#             # Handle MS MARCO style passages
+#             if "passage_text" in val:
+#                 for text in val["passage_text"]:
+#                     if text and isinstance(text, str) and text.strip():
+#                         unique_contexts.add(text)
+#             # Handle Natural Questions (often has 'html' or 'tokens')
+#             elif "html" in val:
+#                 text = val["html"]
+#                 if text and isinstance(text, str) and text.strip():
+#                     unique_contexts.add(text)
+#             # Handle TriviaQA
+#             elif "wiki_context" in val:
+#                 for text in val["wiki_context"]:
+#                     if text and isinstance(text, str) and text.strip():
+#                         # unique_contexts.add(text)
+#                         total_tokens += len(tokenizer.encode(text))
+#             # Handle KILT Wikipedia (text -> paragraph list)
+#             elif "paragraph" in val:
+#                 for text in val["paragraph"]:
+#                     if text and isinstance(text, str) and text.strip():
+#                         # unique_contexts.add(text)
+#                         total_tokens += len(tokenizer.encode(text))
+#         elif isinstance(val, list):
+#             for sub_val in val:
+#                 if isinstance(sub_val, str) and sub_val.strip():
+#                     # unique_contexts.add(sub_val)
+#                     total_tokens += len(tokenizer.encode(sub_val))
+
+#         pbar.update(1)
+
+#     pbar.close()
+
+#     try:
+#         print(f"Total Rows: {len(dataset)}")
+#     except TypeError:
+#         # Use i+1 because i is 0-indexed, but if loop didn't run i might be stale or 0
+#         # If dataset empty, i might not be defined if using 'enumerate' without start?
+#         # Actually loop var leaks in python, but if loop doesn't enter, i is unbound.
+#         pass
+
+#     print(f"total tokens: {total_tokens}")
+
+#     # if not unique_contexts:
+#     #     print("No contexts found.")
+#     #     return
+
+#     # Chunk analysis
+#     print("\nCHUNK ANALYSIS:")
+#     print("-" * 80)
+
+#     print("Tokenizing unique contexts...")
+#     # Optimize: tokenize once, then calculate chunks for different sizes
+#     token_counts = []
+#     for context in tqdm(unique_contexts, desc="Tokenizing unique contexts", unit="ctx"):
+#         token_counts.append(len(tokenizer.encode(context)))
+
+#     for chunk_size in chunk_sizes:
+#         total_chunks = total_tokens / chunk_size
+#         print(f"Chunk size {chunk_size:4d} tokens: {total_chunks:10,.0f} chunks")
 
 
 def tokenize_text(text):
@@ -287,7 +366,8 @@ def analyze_dataset_parallel(
 print("\nLoading TriviaQA...")
 # Config 'rc' is the reading comprehension config
 trivia_qa_dataset = load_dataset("trivia_qa", "rc", split="validation")
-inspect_dataset_structure("TriviaQA", trivia_qa_dataset, num_samples=2)
+# inspect_dataset_structure("TriviaQA", trivia_qa_dataset, num_samples=2)
+analyze_dataset("TriviaQA", trivia_qa_dataset, "entity_pages")
 analyze_dataset_parallel("TriviaQA", trivia_qa_dataset, "entity_pages")
 
 
