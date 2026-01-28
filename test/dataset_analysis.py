@@ -142,6 +142,7 @@ def analyze_dataset(dataset_name, dataset, context_field, limit=None):
     for chunk_size in chunk_sizes:
         total_chunks = sum((tc + chunk_size - 1) // chunk_size for tc in token_counts)
         print(f"Chunk size {chunk_size:4d} tokens: {total_chunks:10d} chunks")
+        print(f"\nTotal Tokens: {sum(token_counts):,}")
 
 
 # def analyze_dataset(dataset_name, dataset, context_field, limit=None):
@@ -262,7 +263,7 @@ def analyze_dataset_parallel(
 
     # Phase 1: Extract all texts (sequential - often I/O bound)
     print("\nPhase 1: Extracting texts...")
-    texts = []
+    texts = set()
 
     # Determine total for progress bar
     try:
@@ -283,10 +284,10 @@ def analyze_dataset_parallel(
         if val is not None:
             if isinstance(val, str):
                 if val.strip():
-                    texts.append(val)
+                    texts.add(val)
             elif isinstance(val, dict):
                 if "wiki_context" in val:
-                    texts.extend(
+                    texts.update(
                         [
                             t
                             for t in val["wiki_context"]
@@ -294,7 +295,7 @@ def analyze_dataset_parallel(
                         ]
                     )
                 elif "paragraph" in val:
-                    texts.extend(
+                    texts.update(
                         [
                             t
                             for t in val["paragraph"]
@@ -303,11 +304,12 @@ def analyze_dataset_parallel(
                     )
                 # ... other cases
             elif isinstance(val, list):
-                texts.extend([t for t in val if isinstance(t, str) and t.strip()])
+                texts.update([t for t in val if isinstance(t, str) and t.strip()])
 
         pbar.update(1)
 
     pbar.close()
+    texts = list(texts)
     print(f"Extracted {len(texts)} text segments from {i + 1} rows.")
 
     # Phase 2: Parallel tokenization (CPU bound)
