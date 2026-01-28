@@ -2,6 +2,8 @@ from datasets import load_dataset
 import tiktoken
 import json
 from tqdm import tqdm
+from multiprocessing import Pool, cpu_count
+from functools import partial
 
 tokenizer = tiktoken.get_encoding("cl100k_base")  # GPT-4 tokenizer
 chunk_sizes = [256, 512, 1024]
@@ -128,11 +130,11 @@ def analyze_dataset(dataset_name, dataset, context_field, limit=None):
                 if isinstance(sub_val, str) and sub_val.strip():
                     # unique_contexts.add(sub_val)
                     total_tokens += len(tokenizer.encode(sub_val))
-        
+
         pbar.update(1)
-    
+
     pbar.close()
-    
+
     try:
         print(f"Total Rows: {len(dataset)}")
     except TypeError:
@@ -160,6 +162,81 @@ def analyze_dataset(dataset_name, dataset, context_field, limit=None):
     for chunk_size in chunk_sizes:
         total_chunks = total_tokens / chunk_size
         print(f"Chunk size {chunk_size:4d} tokens: {total_chunks:10d} chunks")
+
+
+def tokenize_text(text):
+    """Worker function for parallel tokenization."""
+    return len(tokenizer.encode(text))
+
+
+def analyze_dataset_parallel(
+    dataset_name, dataset, context_field, limit=None, num_workers=None
+):
+    """Analyze a dataset using parallel tokenization."""
+    print("\n" + "=" * 80)
+    print(f"DATASET: {dataset_name}")
+    print("=" * 80)
+
+    if num_workers is None:
+        num_workers = max(1, cpu_count() - 1)
+
+    # Phase 1: Extract all texts (sequential - often I/O bound)
+    print("Extracting texts...")
+    texts = []
+
+    for i, item in enumerate(tqdm(dataset, desc="Extracting")):
+        if limit and i >= limit:
+            break
+
+        val = item.get(context_field)
+        if val is None:
+            continue
+
+        if isinstance(val, str):
+            if val.strip():
+                texts.append(val)
+        elif isinstance(val, dict):
+            if "wiki_context" in val:
+                texts.extend(
+                    [
+                        t
+                        for t in val["wiki_context"]
+                        if t and isinstance(t, str) and t.strip()
+                    ]
+                )
+            elif "paragraph" in val:
+                texts.extend(
+                    [
+                        t
+                        for t in val["paragraph"]
+                        if t and isinstance(t, str) and t.strip()
+                    ]
+                )
+            # ... other cases
+        elif isinstance(val, list):
+            texts.extend([t for t in val if isinstance(t, str) and t.strip()])
+
+    # Phase 2: Parallel tokenization (CPU bound)
+    print(f"\nTokenizing {len(texts)} texts using {num_workers} workers...")
+
+    with Pool(num_workers) as pool:
+        token_counts = list(
+            tqdm(
+                pool.imap(tokenize_text, texts, chunksize=100),
+                total=len(texts),
+                desc="Tokenizing",
+            )
+        )
+
+    total_tokens = sum(token_counts)
+    print(f"\nTotal tokens: {total_tokens}")
+
+    # Chunk analysis
+    print("\nCHUNK ANALYSIS:")
+    print("-" * 80)
+    for chunk_size in chunk_sizes:
+        total_chunks = total_tokens / chunk_size
+        print(f"Chunk size {chunk_size:4d} tokens: {total_chunks:10.0f} chunks")
 
 
 # # 1. SQuAD
