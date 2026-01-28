@@ -75,15 +75,27 @@ def analyze_dataset(dataset_name, dataset, context_field, limit=None):
     unique_contexts = set()
     print("Extracting unique contexts...")
 
+    # Determine total for progress bar
+    try:
+        total_rows = len(dataset) if not limit else min(len(dataset), limit)
+        pbar = tqdm(total=total_rows, desc="Extracting contexts", unit="rows")
+    except (TypeError, AttributeError):
+        # Streaming dataset or no length available
+        if limit:
+            pbar = tqdm(total=limit, desc="Extracting contexts", unit="rows")
+        else:
+            pbar = tqdm(desc="Extracting contexts", unit="rows")
+
     i = 0
     # Use the column directly if possible for speed, but iterate for dicts/lists
     for i, item in enumerate(dataset):
         if limit and i >= limit:
-            print(f"Reached limit of {limit} items.")
+            pbar.write(f"Reached limit of {limit} items.")
             break
 
         val = item.get(context_field)
         if val is None:
+            pbar.update(1)
             continue
 
         if isinstance(val, str):
@@ -117,6 +129,10 @@ def analyze_dataset(dataset_name, dataset, context_field, limit=None):
                 if isinstance(sub_val, str) and sub_val.strip():
                     unique_contexts.add(sub_val)
 
+        pbar.update(1)
+
+    pbar.close()
+
     try:
         print(f"Total Rows: {len(dataset)}")
     except TypeError:
@@ -136,7 +152,7 @@ def analyze_dataset(dataset_name, dataset, context_field, limit=None):
     print("Tokenizing unique contexts...")
     # Optimize: tokenize once, then calculate chunks for different sizes
     token_counts = []
-    for context in unique_contexts:
+    for context in tqdm(unique_contexts, desc="Tokenizing", unit="contexts"):
         token_counts.append(len(tokenizer.encode(context)))
 
     for chunk_size in chunk_sizes:
