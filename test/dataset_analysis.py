@@ -412,15 +412,17 @@ def analyze_dataset_parallel(
 # 7. DPR wiki
 # Load without downloading 70GB immediately
 # We use 'no_index' to avoid downloading the massive index files if we just want text
+# 1. Use the full repository path: "facebook/wiki_dpr"
+# 2. Add 'trust_remote_code=True' (Required for this dataset's script)
 dataset = load_dataset(
-    "wiki_dpr", "psgs_w100.nq.no_index", split="train", streaming=True
+    "facebook/wiki_dpr",
+    "psgs_w100.nq.no_index",  # We use 'no_index' to get just the text/embeddings without the massive FAISS file
+    split="train",
+    streaming=True,
+    trust_remote_code=True,
 )
 
-print("Inspecting first 5 passages...")
-for i, row in enumerate(dataset):
-    if i >= 5:
-        break
-    print(f"--- Passage {i} ---")
-    print(f"Title: {row['title']}")
-    print(f"Text: {row['text'][:100]}...")  # Show first 100 chars
-    print(f"ID: {row['id']}")
+print("Reading first entry...")
+first_item = next(iter(dataset))
+print(f"Title: {first_item['title']}")
+print(f"Text: {first_item['text'][:100]}...")
