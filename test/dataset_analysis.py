@@ -179,45 +179,60 @@ def analyze_dataset_parallel(
 
     if num_workers is None:
         num_workers = max(1, cpu_count() - 1)
+    print(f"Using {num_workers} parallel workers for tokenization.")
 
     # Phase 1: Extract all texts (sequential - often I/O bound)
-    print("Extracting texts...")
+    print("\nPhase 1: Extracting texts...")
     texts = []
 
-    for i, item in enumerate(tqdm(dataset, desc="Extracting")):
+    # Determine total for progress bar
+    try:
+        total_rows = len(dataset) if not limit else min(len(dataset), limit)
+        pbar = tqdm(total=total_rows, desc="Extracting", unit="rows")
+    except (TypeError, AttributeError):
+        if limit:
+            pbar = tqdm(total=limit, desc="Extracting", unit="rows")
+        else:
+            pbar = tqdm(desc="Extracting", unit="rows")
+
+    for i, item in enumerate(dataset):
         if limit and i >= limit:
+            print(f"\nReached limit of {limit} items.")
             break
 
         val = item.get(context_field)
-        if val is None:
-            continue
+        if val is not None:
+            if isinstance(val, str):
+                if val.strip():
+                    texts.append(val)
+            elif isinstance(val, dict):
+                if "wiki_context" in val:
+                    texts.extend(
+                        [
+                            t
+                            for t in val["wiki_context"]
+                            if t and isinstance(t, str) and t.strip()
+                        ]
+                    )
+                elif "paragraph" in val:
+                    texts.extend(
+                        [
+                            t
+                            for t in val["paragraph"]
+                            if t and isinstance(t, str) and t.strip()
+                        ]
+                    )
+                # ... other cases
+            elif isinstance(val, list):
+                texts.extend([t for t in val if isinstance(t, str) and t.strip()])
 
-        if isinstance(val, str):
-            if val.strip():
-                texts.append(val)
-        elif isinstance(val, dict):
-            if "wiki_context" in val:
-                texts.extend(
-                    [
-                        t
-                        for t in val["wiki_context"]
-                        if t and isinstance(t, str) and t.strip()
-                    ]
-                )
-            elif "paragraph" in val:
-                texts.extend(
-                    [
-                        t
-                        for t in val["paragraph"]
-                        if t and isinstance(t, str) and t.strip()
-                    ]
-                )
-            # ... other cases
-        elif isinstance(val, list):
-            texts.extend([t for t in val if isinstance(t, str) and t.strip()])
+        pbar.update(1)
+
+    pbar.close()
+    print(f"Extracted {len(texts)} text segments from {i + 1} rows.")
 
     # Phase 2: Parallel tokenization (CPU bound)
-    print(f"\nTokenizing {len(texts)} texts using {num_workers} workers...")
+    print(f"\nPhase 2: Tokenizing {len(texts)} texts using {num_workers} workers...")
 
     with Pool(num_workers) as pool:
         token_counts = list(
@@ -225,18 +240,24 @@ def analyze_dataset_parallel(
                 pool.imap(tokenize_text, texts, chunksize=100),
                 total=len(texts),
                 desc="Tokenizing",
+                unit="texts",
             )
         )
 
     total_tokens = sum(token_counts)
-    print(f"\nTotal tokens: {total_tokens}")
+
+    # Summary
+    print("\n" + "-" * 40)
+    print("SUMMARY:")
+    print(f"  Total texts processed: {len(texts)}")
+    print(f"  Total tokens: {total_tokens:,}")
 
     # Chunk analysis
     print("\nCHUNK ANALYSIS:")
     print("-" * 80)
     for chunk_size in chunk_sizes:
         total_chunks = total_tokens / chunk_size
-        print(f"Chunk size {chunk_size:4d} tokens: {total_chunks:10.0f} chunks")
+        print(f"Chunk size {chunk_size:4d} tokens: {total_chunks:10,.0f} chunks")
 
 
 # # 1. SQuAD
