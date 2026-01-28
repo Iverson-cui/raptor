@@ -120,7 +120,8 @@ def analyze_dataset(dataset_name, dataset, context_field, limit=None):
     try:
         print(f"Total Rows: {len(dataset)}")
     except TypeError:
-        pass
+        # For streaming datasets, use the count from iteration
+        print(f"Total Rows: {i + 1}")
 
     print(f"Unique Contexts: {len(unique_contexts)}")
 
@@ -141,7 +142,8 @@ def analyze_dataset(dataset_name, dataset, context_field, limit=None):
     for chunk_size in chunk_sizes:
         total_chunks = sum((tc + chunk_size - 1) // chunk_size for tc in token_counts)
         print(f"Chunk size {chunk_size:4d} tokens: {total_chunks:10d} chunks")
-        print(f"\nTotal Tokens: {sum(token_counts):,}")
+
+    print(f"\nTotal Tokens: {sum(token_counts):,}")
 
 
 # def analyze_dataset(dataset_name, dataset, context_field, limit=None):
@@ -414,7 +416,8 @@ def analyze_dataset_parallel(
 # We use 'no_index' to avoid downloading the massive index files if we just want text
 # 1. Use the full repository path: "facebook/wiki_dpr"
 # 2. Add 'trust_remote_code=True' (Required for this dataset's script)
-dataset = load_dataset(
+print("\nLoading DPR Wiki...")
+dpr_wiki_dataset = load_dataset(
     "facebook/wiki_dpr",
     "psgs_w100.nq.no_index",  # We use 'no_index' to get just the text/embeddings without the massive FAISS file
     split="train",
@@ -422,7 +425,11 @@ dataset = load_dataset(
     trust_remote_code=True,
 )
 
-print("Reading first entry...")
-first_item = next(iter(dataset))
-print(f"Title: {first_item['title']}")
-print(f"Text: {first_item['text'][:100]}...")
+# Option 1: Quick inspection
+inspect_dataset_structure("DPR Wiki", dpr_wiki_dataset, num_samples=2)
+
+# Option 2: Sequential analysis with limit (for streaming dataset)
+analyze_dataset("DPR Wiki", dpr_wiki_dataset, "text")
+
+# Option 3: Parallel analysis with limit (faster for large samples)
+analyze_dataset_parallel("DPR Wiki", dpr_wiki_dataset, "text")
