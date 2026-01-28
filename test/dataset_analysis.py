@@ -367,9 +367,9 @@ def analyze_dataset_parallel(
 # 5. TriviaQA
 print("\nLoading TriviaQA...")
 # Config 'rc' is the reading comprehension config
-trivia_qa_dataset = load_dataset("trivia_qa", "rc", split="validation")
+trivia_qa_dataset = load_dataset("trivia_qa", "rc", split="train")
 # inspect_dataset_structure("TriviaQA", trivia_qa_dataset, num_samples=2)
-analyze_dataset("TriviaQA", trivia_qa_dataset, "entity_pages")
+# analyze_dataset("TriviaQA", trivia_qa_dataset, "entity_pages")
 analyze_dataset_parallel("TriviaQA", trivia_qa_dataset, "entity_pages")
 
 
