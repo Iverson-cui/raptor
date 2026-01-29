@@ -5,6 +5,7 @@ from .cluster_tree_builder import ClusterTreeBuilder, ClusterTreeConfig
 from .kmeans_tree_builder import KMeansTreeBuilder, KMeansTreeConfig
 from .merge_tree_builder import MergeTreeBuilder, MergeTreeConfig
 from .kmeans_retriever import KMeansRetriever, KMeansRetrieverConfig
+from .merge_tree_retriever import MergeTreeRetriever, MergeTreeRetrieverConfig
 from .EmbeddingModels import BaseEmbeddingModel
 from .QAModels import BaseQAModel, GPT3TurboQAModel, QwenQAModel, UnifiedQAModel
 from .SummarizationModels import BaseSummarizationModel
@@ -23,6 +24,7 @@ supported_tree_builders = {
 supported_retrievers = {
     "tree": (TreeRetriever, TreeRetrieverConfig),
     "kmeans": (KMeansRetriever, KMeansRetrieverConfig),
+    "merge": (MergeTreeRetriever, MergeTreeRetrieverConfig),
 }
 # TODO: add a merge tree retriever
 logging.basicConfig(format="%(asctime)s - %(message)s", level=logging.INFO)
@@ -189,6 +191,9 @@ class RetrievalAugmentationConfig:
                 "start_layer": tr_start_layer,
             }
             if tree_retriever_type == "kmeans":
+                config_kwargs["top_k_clusters"] = tr_top_k_clusters
+            
+            if tree_retriever_type == "merge":
                 config_kwargs["top_k_clusters"] = tr_top_k_clusters
 
             tree_retriever_config = retriever_config_class(**config_kwargs)
