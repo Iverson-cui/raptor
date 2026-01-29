@@ -5,11 +5,13 @@ import os
 import sys
 
 # Add project root to sys.path
-sys.path.append(os.path.abspath(os.path.dirname(__file__)))
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+sys.path.insert(0, project_root)
 
 from raptor.merge_tree_builder import MergeTreeBuilder, MergeTreeConfig
 from raptor.tree_structures import Tree
 from raptor.EmbeddingModels import BGEM3Model, SBertEmbeddingModel
+
 
 logging.basicConfig(format="%(asctime)s - %(message)s", level=logging.INFO)
 
