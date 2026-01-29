@@ -79,7 +79,6 @@ def evaluate_on_squad(local_test=False):
         # Traing 90k 18k val 10k 2k
         # num_contexts_target = float("inf")
         # num_eval_questions_target = float("inf")
-        # TODO: chunk size
         num_contexts_target = 250
         num_eval_questions_target = 500
 

@@ -69,6 +69,7 @@ class KMeansRetriever(BaseRetriever):
             )
             cluster_nodes = []
         else:
+            # hard code to have cluster nodes at layer 1
             cluster_nodes = self.tree.layer_to_nodes[1]
 
         # 2. Select closest clusters

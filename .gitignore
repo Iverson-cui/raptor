@@ -31,6 +31,8 @@ finetuning_ckpts/
 assertion.log
 *.log
 *.db
+parameter_calculation.py
+json_analysis.py
 # Gemini CLI 配置文件
 .gemini/settings.json
 GEMINI.md

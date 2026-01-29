@@ -3,6 +3,7 @@ import pickle
 
 from .cluster_tree_builder import ClusterTreeBuilder, ClusterTreeConfig
 from .kmeans_tree_builder import KMeansTreeBuilder, KMeansTreeConfig
+from .merge_tree_builder import MergeTreeBuilder, MergeTreeConfig
 from .kmeans_retriever import KMeansRetriever, KMeansRetrieverConfig
 from .EmbeddingModels import BaseEmbeddingModel
 from .QAModels import BaseQAModel, GPT3TurboQAModel, QwenQAModel, UnifiedQAModel
@@ -15,6 +16,7 @@ from .tree_structures import Node, Tree
 supported_tree_builders = {
     "cluster": (ClusterTreeBuilder, ClusterTreeConfig),
     "kmeans": (KMeansTreeBuilder, KMeansTreeConfig),
+    "merge": (MergeTreeBuilder, MergeTreeConfig),
 }
 
 # Define a dictionary to map supported retrievers to their respective configs
@@ -22,7 +24,7 @@ supported_retrievers = {
     "tree": (TreeRetriever, TreeRetrieverConfig),
     "kmeans": (KMeansRetriever, KMeansRetrieverConfig),
 }
-
+# TODO: add a merge tree retriever
 logging.basicConfig(format="%(asctime)s - %(message)s", level=logging.INFO)
 
 
@@ -68,6 +70,8 @@ class RetrievalAugmentationConfig:
         # which embedding to use for clustering in tree builder
         tb_cluster_embedding_model="BGEM3",
         tb_n_clusters=5,  # specifically for KMeansTreeBuilder
+        tb_merge_top_k_clusters=5,  # specifically for MergeTreeBuilder
+        tb_merge_top_k_chunks=10,  # specifically for MergeTreeBuilder
     ):
         # Validate tree_builder_type
         if tree_builder_type not in supported_tree_builders:
@@ -154,6 +158,11 @@ class RetrievalAugmentationConfig:
             }
             if tree_builder_type == "kmeans":
                 config_kwargs["n_clusters"] = tb_n_clusters
+
+            if tree_builder_type == "merge":
+                config_kwargs["n_clusters"] = tb_n_clusters
+                config_kwargs["merge_top_k_clusters"] = tb_merge_top_k_clusters
+                config_kwargs["merge_top_k_chunks"] = tb_merge_top_k_chunks
 
             tree_builder_config = tree_builder_config_class(**config_kwargs)
 

@@ -190,7 +190,6 @@ class ClusterTreeBuilder(TreeBuilder):
             # update all_tree_nodes to include new level nodes
             all_tree_nodes.update(new_level_nodes)
 
-            # TODO: Is this necessary? Since we are already updating all_tree_nodes above, tree will be constructed outside of this function.
             # tree = Tree(
             #     all_tree_nodes,
             #     layer_to_nodes[layer + 1],
