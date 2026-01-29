@@ -216,3 +216,35 @@ def indices_of_nearest_neighbors_from_distances(distances: List[float]) -> np.nd
         np.ndarray: An array of indices sorted by ascending distance.
     """
     return np.argsort(distances)
+
+
+def log_tree_structure(tree) -> None:
+    """
+    Logs the structure of the tree, including the number of layers, nodes in each layer,
+    and a preview of the text for each node.
+    """
+    if tree is None:
+        logging.error("Tree is None")
+        return
+
+    logging.info(f"Total Number of Layers: {tree.num_layers}")
+
+    sorted_layers = sorted(tree.layer_to_nodes.keys())
+
+    for layer_idx in sorted_layers:
+        nodes = tree.layer_to_nodes[layer_idx]
+        layer_name = "Leaf Layer" if layer_idx == 0 else f"Summary Layer {layer_idx}"
+        logging.info(f"[ Layer {layer_idx} ] - {layer_name}")
+        logging.info(f"Count: {len(nodes)} nodes")
+
+        logging.info(f"{'Node Index':<12} | {'Children':<10} | {'Text Preview'}")
+        logging.info("-" * 60)
+
+        for node in nodes:
+            text_preview = (
+                node.text[:60].replace("\n", " ") + "..."
+                if len(node.text) > 60
+                else node.text.replace("\n", " ")
+            )
+            children_count = len(node.children) if node.children else 0
+            logging.info(f"{node.index:<12} | {children_count:<10} | {text_preview}")

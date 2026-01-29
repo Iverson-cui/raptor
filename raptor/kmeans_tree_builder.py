@@ -1,4 +1,5 @@
 import logging
+# import os
 import numpy as np
 from typing import Dict, List, Set
 import faiss
@@ -71,19 +72,19 @@ class KMeansTreeBuilder(TreeBuilder):
         if n_samples == 0:
             return {}
 
-        # Perform KMeans clustering using Faiss
-        # spherical=True is recommended for Cosine Similarity (normalized embeddings)
-        use_gpu = faiss.get_num_gpus() if (faiss.get_num_gpus() > 0) else 0
-
         logging.info(
             f"Starting Faiss KMeans (GPU={use_gpu}, spherical=True, k={n_clusters})"
         )
 
-        # d: dimension of the vectors to cluster
-        # k: number of clusters
-        # spherical means normalize vectors to unit length before clustering
-        # nredo: run it multiple times and keep the best
-        # gpu=True means using all of gpus available, gpu=3 means using only 3 gpus.
+        # # Allow disabling faiss via environment variable
+        # use_faiss = os.environ.get("USE_FAISS", "True").lower() == "true"
+
+        # if use_faiss:
+        #     try:
+        # Attempt to use Faiss for KMeans
+        use_gpu = faiss.get_num_gpus() if (faiss.get_num_gpus() > 0) else 0
+        logging.info(f"Attempting Faiss KMeans (GPU={use_gpu}, spherical=True)")
+
         kmeans = faiss.Kmeans(
             d=d,
             k=n_clusters,
@@ -94,22 +95,22 @@ class KMeansTreeBuilder(TreeBuilder):
             seed=42,
             gpu=use_gpu,
         )
-
         kmeans.train(embeddings_np)
-
-        # Get cluster centers (centroids)
-        # centroids is a numpy array of shape (n_clusters, d)
         centroids = kmeans.centroids
-
-        # After kmeans.train, we only get n_clusters cluster centroids
-        # BUT we are not assigning every embedding to a cluster yet.
-        # To do that, first We search the index (centroids) to find the nearest cluster for each point.
-        # index.search returns (distances, indices)
-        # indices contains the cluster ID for each sample
         _, labels = kmeans.index.search(embeddings_np, 1)
-        # flatten the cluster index to get 1d array
-        # this labels is used later to build cluster nodes
         labels = labels.flatten()
+
+        #     except Exception as e:
+        #         logging.warning(f"Faiss KMeans failed or is unavailable: {e}. Falling back to sklearn.")
+        #         use_faiss = False
+
+        # if not use_faiss:
+        #     logging.info("Using sklearn KMeans")
+        #     from sklearn.cluster import KMeans
+        #     # Sklearn's KMeans
+        #     kmeans_sk = KMeans(n_clusters=n_clusters, random_state=42, n_init=3)
+        #     labels = kmeans_sk.fit_predict(embeddings_np)
+        #     centroids = kmeans_sk.cluster_centers_
 
         new_level_nodes = {}
         next_node_index = len(all_tree_nodes)  # Start indexing after existing nodes
