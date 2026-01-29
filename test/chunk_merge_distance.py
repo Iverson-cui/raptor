@@ -7,7 +7,7 @@ import argparse
 import random
 import numpy as np
 from datasets import load_dataset, concatenate_datasets
-from raptor.utils import log_tree_structure
+
 
 # Ensure the raptor package is accessible from the test directory
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -22,6 +22,7 @@ from raptor.utils import (
     indices_of_nearest_neighbors_from_distances,
     get_embeddings,
 )
+from raptor.utils import log_tree_structure
 
 # Setup logging
 logging.basicConfig(
