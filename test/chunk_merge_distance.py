@@ -1,3 +1,4 @@
+from math import log
 import os
 import sys
 import logging
@@ -6,6 +7,7 @@ import argparse
 import random
 import numpy as np
 from datasets import load_dataset, concatenate_datasets
+from raptor.utils import log_tree_structure
 
 # Ensure the raptor package is accessible from the test directory
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -474,6 +476,32 @@ def run_experiment(
     print(f"\nOverlap between methods: {overlap}/{top_k_chunks}")
 
 
+def examine_tree(
+    dataset_name="squad",
+    local_test=True,
+    chunk_size=128,
+    n_clusters=50,
+    top_k_clusters=5,
+    top_k_chunks=10,
+    target_chunk_idx=None,
+    distance_metric="cosine",
+    context_limit=None,
+    save_tree_path=None,
+    load_tree_path=None,
+):
+    RA = initialize_raptor(
+        dataset_name=dataset_name,
+        local_test=local_test,
+        chunk_size=chunk_size,
+        n_clusters=n_clusters,
+        context_limit=context_limit,
+        save_tree_path=save_tree_path,
+        load_tree_path=load_tree_path,
+        distance_metric=distance_metric,
+    )
+    log_tree_structure(RA.tree)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Analyze Chunk Distances in RAPTOR")
     parser.add_argument(
@@ -524,9 +552,10 @@ if __name__ == "__main__":
 
     if args.overlap_test:
         func = overlap_calculate
-        kwargs = {
-            "num_samples": args.num_samples
-        }
+        kwargs = {"num_samples": args.num_samples}
+    elif args.examine_tree:
+        func = examine_tree
+        kwargs = {}
     else:
         func = run_experiment
         kwargs = {}
