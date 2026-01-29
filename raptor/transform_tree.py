@@ -64,11 +64,12 @@ def transform_tree(
     embedding_model_name = list(first_node.embeddings.keys())[0]
     logging.info(f"Detected embedding model in nodes: {embedding_model_name}")
 
-    device = (
-        "mps"
-        if torch.backends.mps.is_available()
-        else "cuda" if torch.cuda.is_available() else "cpu"
-    )
+    # device = (
+    #     "mps"
+    #     if torch.backends.mps.is_available()
+    #     else "cuda" if torch.cuda.is_available() else "cpu"
+    # )
+    device = "cuda:0"
     logging.info(f"Using device: {device}")
 
     if "BGEM3" in embedding_model_name:
