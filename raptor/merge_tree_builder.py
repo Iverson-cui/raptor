@@ -30,6 +30,18 @@ class MergeTreeConfig(KMeansTreeConfig):
         *args,
         **kwargs,
     ):
+        """
+        Docstring for __init__
+
+        :param self: Description
+        :param merge_top_k_clusters: number of top clusters to consider for merging
+        :param merge_top_k_chunks: Number of candidates to check, though we pick top 1 to merge
+        :param args: Description
+        :param kwargs: Description
+
+        TODO: make them configurable
+        merge_top_k_* parameters are extra parameters for MergeTreeBuilder. Now they are defaulted.
+        """
         super().__init__(*args, **kwargs)
         self.merge_top_k_clusters = merge_top_k_clusters
         self.merge_top_k_chunks = merge_top_k_chunks
@@ -85,46 +97,37 @@ class MergeTreeBuilder(KMeansTreeBuilder):
         except Exception:
             num_gpus = 0
 
-        if num_gpus > 0:
-            logging.info(
-                f"Server mode detected (GPUs={num_gpus}). Using FAISS for clustering."
-            )
-            # Explicitly normalize for FAISS spherical clustering
-            # We copy to avoid modifying the original array in place if it's used elsewhere,
-            # though here it's passed by value (but numpy array is ref).
-            # To be safe for the caller, let's normalize a copy or just normalize in place if we know it's safe.
-            # In construct_tree, we create embeddings_np_layer0 specifically for this call.
+        logging.info(
+            f"Server mode detected (GPUs={num_gpus}). Using FAISS for clustering."
+        )
+        # Explicitly normalize for FAISS spherical clustering
+        # We copy to avoid modifying the original array in place if it's used elsewhere,
+        # though here it's passed by value (but numpy array is ref).
+        # To be safe for the caller, let's normalize a copy or just normalize in place if we know it's safe.
+        # In construct_tree, we create embeddings_np_layer0 specifically for this call.
 
-            # Note: faiss.normalize_L2 is in-place.
-            # If we don't want to affect the caller's array, we should copy.
-            # embeddings_for_faiss is the copy
-            embeddings_for_faiss = embeddings_np.copy()
-            # normalize the copy vectors
-            faiss.normalize_L2(embeddings_for_faiss)
+        # Note: faiss.normalize_L2 is in-place.
+        # If we don't want to affect the caller's array, we should copy.
+        # embeddings_for_faiss is the copy
+        embeddings_for_faiss = embeddings_np.copy()
+        # normalize the copy vectors
+        faiss.normalize_L2(embeddings_for_faiss)
 
-            kmeans = faiss.Kmeans(
-                d=embeddings_for_faiss.shape[1],
-                k=n_clusters,
-                niter=20,
-                nredo=1,
-                verbose=False,
-                spherical=True,
-                seed=42,
-                gpu=num_gpus,
-                min_points_per_centroid=1,
-            )
-            kmeans.train(embeddings_for_faiss)
-            # assigns each embedding to its nearest centroid
-            _, labels = kmeans.index.search(embeddings_for_faiss, 1)
-            return kmeans.centroids, labels.flatten()
-        # Fallback to Sklearn KMeans
-        else:
-            logging.info(
-                "Local mode detected (No FAISS GPUs). Using Sklearn for clustering."
-            )
-            kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
-            kmeans.fit(embeddings_np)
-            return kmeans.cluster_centers_, kmeans.labels_
+        kmeans = faiss.Kmeans(
+            d=embeddings_for_faiss.shape[1],
+            k=n_clusters,
+            niter=20,
+            nredo=1,
+            verbose=False,
+            spherical=True,
+            seed=42,
+            gpu=num_gpus,
+            min_points_per_centroid=1,
+        )
+        kmeans.train(embeddings_for_faiss)
+        # assigns each embedding to its nearest centroid
+        _, labels = kmeans.index.search(embeddings_for_faiss, 1)
+        return kmeans.centroids, labels.flatten()
 
     def construct_tree(
         self,
@@ -186,7 +189,7 @@ class MergeTreeBuilder(KMeansTreeBuilder):
             )
             dists_to_centroids.append(dists)
 
-        # TODO: This code is said tobe more efficient but needs testing
+        # TODO: This code is said to be more efficient but needs testing
         # # ...existing code...
         # # Pre-calculate distances from all nodes to all centroids
         # # shape: (n_samples, n_clusters)

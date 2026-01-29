@@ -326,6 +326,21 @@ def overlap_calculate(
     save_tree_path=None,
     load_tree_path=None
 ):
+    """
+    Docstring for overlap_calculate
+
+    :param dataset_name: Description
+    :param local_test: Description
+    :param chunk_size: Description
+    :param n_clusters: passed to RA initialization for tree building. If kmean builder, then it's number of clusters; if merge builder, then it's used both as search and as final clustering.
+    :param top_k_clusters: used in cluster-based search for closest chunks. It decides how many clusters to consider.
+    :param top_k_chunks: used in cluster-based and brute force search for closest chunks. It decides how many chunks to consider.
+    :param num_samples: calculate how many leaf nodes we are considering.
+    :param distance_metric: Description
+    :param context_limit: Description
+    :param save_tree_path: Description
+    :param load_tree_path: Description
+    """
     RA = initialize_raptor(
         dataset_name=dataset_name,
         local_test=local_test,

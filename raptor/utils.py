@@ -240,7 +240,7 @@ def log_tree_structure(tree) -> None:
         logging.info(f"{'Node Index':<12} | {'Children':<10} | {'Text Preview'}")
         logging.info("-" * 60)
 
-        nodes_to_display = nodes[:20] if len(nodes) > 20 else nodes
+        nodes_to_display = nodes[:5] if len(nodes) > 5 else nodes
 
         for node in nodes_to_display:
             text_preview = (
@@ -251,5 +251,5 @@ def log_tree_structure(tree) -> None:
             children_count = len(node.children) if node.children else 0
             logging.info(f"{node.index:<12} | {children_count:<10} | {text_preview}")
 
-        if len(nodes) > 20:
-            logging.info(f"... and {len(nodes) - 20} more nodes")
+        if len(nodes) > 5:
+            logging.info(f"... and {len(nodes) - 5} more nodes")

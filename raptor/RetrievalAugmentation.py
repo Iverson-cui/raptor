@@ -70,8 +70,8 @@ class RetrievalAugmentationConfig:
         # which embedding to use for clustering in tree builder
         tb_cluster_embedding_model="BGEM3",
         tb_n_clusters=5,  # specifically for KMeansTreeBuilder
-        tb_merge_top_k_clusters=5,  # specifically for MergeTreeBuilder
-        tb_merge_top_k_chunks=10,  # specifically for MergeTreeBuilder
+        tb_merge_top_k_clusters=10,  # specifically for MergeTreeBuilder
+        tb_merge_top_k_chunks=3,  # specifically for MergeTreeBuilder
     ):
         # Validate tree_builder_type
         if tree_builder_type not in supported_tree_builders:
