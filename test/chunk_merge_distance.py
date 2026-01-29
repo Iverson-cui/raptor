@@ -569,7 +569,7 @@ if __name__ == "__main__":
     if args.server:
         # Server defaults
         func(
-            dataset_name="trivia_qa",
+            dataset_name="squad",
             local_test=False,
             chunk_size=args.chunk_size,
             n_clusters=(
@@ -581,7 +581,7 @@ if __name__ == "__main__":
             context_limit=args.limit,
             save_tree_path=args.save_tree,
             load_tree_path=args.load_tree,
-            **kwargs
+            **kwargs,
         )
     else:
         # Local defaults (or explicit local flag)
