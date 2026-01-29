@@ -168,6 +168,7 @@ def evaluate_merge_on_dataset(
     multi_retriever_configs=None,
     node_information=False,
     context_ratio=None,
+    load_tree_path=None,
 ):
     """
     Evaluates Merge Tree RAPTOR on the specified dataset.
@@ -355,16 +356,23 @@ def evaluate_merge_on_dataset(
         tb_max_tokens=tb_max_tokens,
     )
 
-    RA = RetrievalAugmentation(config=RAC)
+    if load_tree_path:
+        logging.info(f"Loading tree from {load_tree_path}...")
+        RA = RetrievalAugmentation(config=RAC, tree=load_tree_path)
+    else:
+        RA = RetrievalAugmentation(config=RAC)
 
-    logging.info("Joining contexts into full corpus...")
-    full_corpus = "\n\n".join(all_contexts)
+    if not load_tree_path:
+        logging.info("Joining contexts into full corpus...")
+        full_corpus = "\n\n".join(all_contexts)
 
-    logging.info("Building Merge RAPTOR tree...")
-    start_time = time.time()
-    RA.add_documents(full_corpus, use_multithreading=not local_test)
-    elapsed = time.time() - start_time
-    logging.info(f"Tree built successfully in {elapsed:.2f} seconds.")
+        logging.info("Building Merge RAPTOR tree...")
+        start_time = time.time()
+        RA.add_documents(full_corpus, use_multithreading=not local_test)
+        elapsed = time.time() - start_time
+        logging.info(f"Tree built successfully in {elapsed:.2f} seconds.")
+    else:
+        logging.info("Skipping tree building (tree loaded).")
 
     retriever_names = ["default"]
     if multi_retriever_configs:
@@ -506,6 +514,13 @@ if __name__ == "__main__":
     parser.add_argument(
         "--context_ratio", type=float, help="Ratio of contexts to use (0.0 - 1.0)"
     )
+    # provide the path of tree pkl file
+    parser.add_argument(
+        "--load_tree",
+        type=str,
+        default=None,
+        help="Path to load a pre-built tree (pickle format)",
+    )
 
     # used in freetest. This is set to one set value for multiple retrievers.
     parser.add_argument("--chunk_size", type=int, help="Chunk size for tree building")
@@ -585,6 +600,7 @@ if __name__ == "__main__":
             print_summary=False,
             node_information=args.node_info,
             context_ratio=args.context_ratio,
+            load_tree_path=args.load_tree,
         )
 
         print("\n" + "=" * 100)
@@ -624,4 +640,5 @@ if __name__ == "__main__":
             merge_k_chunks=args.merge_k_chunks,
             node_information=args.node_info,
             context_ratio=args.context_ratio,
+            load_tree_path=args.load_tree,
         )

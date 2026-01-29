@@ -188,6 +188,7 @@ def evaluate_k_means_on_dataset(
     multi_retriever_configs=None,  # New parameter: list of dicts for retrieval benchmarking
     node_information=False,
     context_ratio=None,
+    load_tree_path=None,
 ):
     """
     Evaluates K-Means RAPTOR on the specified dataset.
@@ -397,18 +398,25 @@ def evaluate_k_means_on_dataset(
         tb_max_tokens=tb_max_tokens,
     )
 
-    RA = RetrievalAugmentation(config=RAC)
+    if load_tree_path:
+        logging.info(f"Loading tree from {load_tree_path}...")
+        RA = RetrievalAugmentation(config=RAC, tree=load_tree_path)
+    else:
+        RA = RetrievalAugmentation(config=RAC)
 
-    # Concatenate all contexts into one large corpus
-    logging.info("Joining contexts into full corpus...")
-    full_corpus = "\n\n".join(all_contexts)
+    if not load_tree_path:
+        # Concatenate all contexts into one large corpus
+        logging.info("Joining contexts into full corpus...")
+        full_corpus = "\n\n".join(all_contexts)
 
-    logging.info("Building K-Means RAPTOR tree...")
-    start_time = time.time()
-    # tree building
-    RA.add_documents(full_corpus, use_multithreading=not local_test)
-    elapsed = time.time() - start_time
-    logging.info(f"Tree built successfully in {elapsed:.2f} seconds.")
+        logging.info("Building K-Means RAPTOR tree...")
+        start_time = time.time()
+        # tree building
+        RA.add_documents(full_corpus, use_multithreading=not local_test)
+        elapsed = time.time() - start_time
+        logging.info(f"Tree built successfully in {elapsed:.2f} seconds.")
+    else:
+        logging.info("Skipping tree building (tree loaded).")
 
     # Multi-retriever setup
     retriever_names = ["default"]
@@ -554,6 +562,12 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--context_ratio", type=float, help="Ratio of contexts to use (0.0 - 1.0)"
+    )
+    parser.add_argument(
+        "--load_tree",
+        type=str,
+        default=None,
+        help="Path to load a pre-built tree (pickle format)",
     )
 
     # New arguments for customizing parameters
@@ -715,6 +729,7 @@ if __name__ == "__main__":
             print_summary=False,
             node_information=args.node_info,
             context_ratio=args.context_ratio,
+            load_tree_path=args.load_tree,
         )
 
         print("\n" + "=" * 100)
@@ -754,4 +769,5 @@ if __name__ == "__main__":
             tr_top_k=args.top_k,
             node_information=args.node_info,
             context_ratio=args.context_ratio,
+            load_tree_path=args.load_tree,
         )

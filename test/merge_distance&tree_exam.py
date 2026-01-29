@@ -218,7 +218,8 @@ def initialize_raptor(
 ):
     """
     if save_tree_path is provided, saves the built tree to that path.
-    So if you only want to save a tree, just call this. overlap_calculate and run_experiment both called this initially.
+    So if you only want to save a tree, just call this.
+    overlap_calculate and run_experiment both called this initially.
     """
     logging.info(
         f"Starting experiment: Dataset={dataset_name}, Local={local_test}, Metric={distance_metric}"
