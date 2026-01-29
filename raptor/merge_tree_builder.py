@@ -150,6 +150,7 @@ class MergeTreeBuilder(KMeansTreeBuilder):
         )
         # convert embeddings to np array
         embeddings_np_layer0 = np.array(embeddings_layer0, dtype=np.float32)
+        # n_samples is the number of leaf nodes
         n_samples = len(node_list_layer0)
 
         # --- Step 2: Build Auxiliary Clusters for Search ---
@@ -183,11 +184,19 @@ class MergeTreeBuilder(KMeansTreeBuilder):
         # shape: (n_samples, n_clusters)
         dists_to_centroids = []
         # for every leaf node, compute distances to each cluster centroid
+        # calculate the distances of every layer 0 nodes to each auxiliary centroid
+        logging.info(f"Calculating distances for {n_samples} nodes to {n_clusters_aux} centroids...")
         for i in range(n_samples):
             dists = distances_from_embeddings(
                 embeddings_layer0[i], aux_centroids, distance_metric="cosine"
             )
             dists_to_centroids.append(dists)
+
+            # Log progress every 100 nodes
+            if (i + 1) % 100 == 0:
+                logging.info(f"Distance calculation progress: {i + 1}/{n_samples} nodes processed")
+
+        logging.info(f"Distance calculation complete for all {n_samples} nodes")
 
         # TODO: This code is said to be more efficient but needs testing
         # # ...existing code...
