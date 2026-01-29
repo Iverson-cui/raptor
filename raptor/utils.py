@@ -221,7 +221,7 @@ def indices_of_nearest_neighbors_from_distances(distances: List[float]) -> np.nd
 def log_tree_structure(tree) -> None:
     """
     Logs the structure of the tree, including the number of layers, nodes in each layer,
-    and a preview of the text for each node.
+    text length, and embedding information for each node.
     """
     if tree is None:
         logging.error("Tree is None")
@@ -237,19 +237,26 @@ def log_tree_structure(tree) -> None:
         logging.info(f"[ Layer {layer_idx} ] - {layer_name}")
         logging.info(f"Count: {len(nodes)} nodes")
 
-        logging.info(f"{'Node Index':<12} | {'Children':<10} | {'Text Preview'}")
-        logging.info("-" * 60)
+        logging.info(f"{'Node Index':<12} | {'Children':<10} | {'Text Length':<12} | {'Embeddings'}")
+        logging.info("-" * 80)
 
         nodes_to_display = nodes[:5] if len(nodes) > 5 else nodes
 
         for node in nodes_to_display:
-            text_preview = (
-                node.text[:60].replace("\n", " ") + "..."
-                if len(node.text) > 60
-                else node.text.replace("\n", " ")
-            )
+            text_length = len(node.text)
             children_count = len(node.children) if node.children else 0
-            logging.info(f"{node.index:<12} | {children_count:<10} | {text_preview}")
+            
+            # Get embedding info
+            embedding_info = {}
+            for model_name, embedding in node.embeddings.items():
+                if isinstance(embedding, (list, np.ndarray)):
+                    embedding_info[model_name] = len(embedding)
+            
+            embedding_str = ", ".join([f"{model}: dim={dim}" for model, dim in embedding_info.items()])
+            if not embedding_str:
+                embedding_str = "No embeddings"
+            
+            logging.info(f"{node.index:<12} | {children_count:<10} | {text_length:<12} | {embedding_str}")
 
         if len(nodes) > 5:
             logging.info(f"... and {len(nodes) - 5} more nodes")
