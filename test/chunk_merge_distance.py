@@ -547,6 +547,11 @@ if __name__ == "__main__":
         default=10,
         help="Number of samples for overlap calculation",
     )
+    parser.add_argument(
+        "--examine_tree",
+        action="store_true",
+        help="Examine the tree structure",
+    )
 
     args = parser.parse_args()
 
