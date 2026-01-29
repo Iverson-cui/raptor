@@ -216,6 +216,10 @@ def initialize_raptor(
     load_tree_path=None,
     distance_metric="cosine"
 ):
+    """
+    if save_tree_path is provided, saves the built tree to that path.
+    So if you only want to save a tree, just call this. overlap_calculate and run_experiment both called this initially.
+    """
     logging.info(
         f"Starting experiment: Dataset={dataset_name}, Local={local_test}, Metric={distance_metric}"
     )
@@ -285,7 +289,7 @@ def initialize_raptor(
         n_clusters = min(n_clusters, 5)
 
     RAC = RetrievalAugmentationConfig(
-        tree_builder_type="kmeans",
+        tree_builder_type="merge",
         tree_retriever_type="kmeans",
         tb_n_clusters=n_clusters,
         qa_model=qa_model,
@@ -421,6 +425,9 @@ def run_experiment(
     save_tree_path=None,
     load_tree_path=None
 ):
+    """
+    Run two search and output closest chunks. Finally compare overlap.
+    """
     RA = initialize_raptor(
         dataset_name=dataset_name,
         local_test=local_test,
