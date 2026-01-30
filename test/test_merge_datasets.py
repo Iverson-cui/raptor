@@ -363,6 +363,7 @@ def evaluate_merge_on_dataset(
 
     if load_tree_path:
         logging.info(f"Loading tree from {load_tree_path}...")
+        # still use RAC configuration
         RA = RetrievalAugmentation(config=RAC, tree=load_tree_path)
     else:
         RA = RetrievalAugmentation(config=RAC)

@@ -186,7 +186,9 @@ class MergeTreeRetriever(BaseRetriever):
         context = get_text(final_selected_nodes)
 
         if return_layer_information:
-            layer_information = [node.index for node in final_selected_nodes]
+            layer_information = [
+                (node.index, node.layer) for node in final_selected_nodes
+            ]
             return context, layer_information
 
         return context
