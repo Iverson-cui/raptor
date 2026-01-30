@@ -1,3 +1,9 @@
+"""
+This function is created specifically for analyzing the KILT Wikipedia dataset. For other datasets now, use dataset_analysis.py instead.
+
+Run it like: python analyse_kilt.py --limit 1000 --chunk-sizes 128 256 512
+"""
+
 import tiktoken
 from datasets import load_dataset
 from typing import Optional, List
@@ -45,8 +51,12 @@ def analyze_kilt_wikipedia(
         print("--> Dataset object created successfully.")
     except Exception as e:
         print(f"--> FAILED to load dataset: {e}")
-        print("\nThis might be due to a network issue, a problem with the Hugging Face Hub,")
-        print("or the dataset structure having changed. The environment has been verified,")
+        print(
+            "\nThis might be due to a network issue, a problem with the Hugging Face Hub,"
+        )
+        print(
+            "or the dataset structure having changed. The environment has been verified,"
+        )
         print("but this specific dataset is very large and can be slow to initialize.")
         return
 
@@ -103,7 +113,11 @@ def analyze_kilt_wikipedia(
         if limit is not None and i >= limit:
             break
         # The text content is in 'text' -> 'paragraph'
-        if 'text' in row and isinstance(row['text'], dict) and 'paragraph' in row['text']:
+        if (
+            "text" in row
+            and isinstance(row["text"], dict)
+            and "paragraph" in row["text"]
+        ):
             # for para in row['text']['paragraph']:
             # if para and isinstance(para, str) and para.strip():
             #     unique_contexts.add(para)

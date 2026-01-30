@@ -1,3 +1,7 @@
+"""
+This file can be used to analyze various datasets for their token and chunk statistics. There are two analyze functions for different standard.
+"""
+
 from datasets import load_dataset
 import tiktoken
 import json
@@ -66,7 +70,10 @@ def inspect_dataset_structure(dataset_name, dataset, num_samples=1):
 
 
 def analyze_dataset(dataset_name, dataset, context_field, limit=None):
-    """Analyze a dataset and print chunk statistics."""
+    """
+    Analyze a dataset and print chunk statistics.
+    The way of computing chunks in this function is corrrect. First get chunks, then calculate.
+    """
     print("\n" + "=" * 80)
     print(f"DATASET: {dataset_name}")
     print("=" * 80)
@@ -269,7 +276,10 @@ def tokenize_text(text):
 def analyze_dataset_parallel(
     dataset_name, dataset, context_field, limit=None, num_workers=None
 ):
-    """Analyze a dataset using parallel tokenization."""
+    """
+    Analyze a dataset using parallel tokenization.
+    In this function, the chunk computing method is simple, just total tokens / chunk size.
+    """
     print("\n" + "=" * 80)
     print(f"DATASET: {dataset_name}")
     print("=" * 80)
