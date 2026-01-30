@@ -187,7 +187,8 @@ class MergeTreeRetriever(BaseRetriever):
 
         if return_layer_information:
             layer_information = [
-                (node.index, node.layer) for node in final_selected_nodes
+                (node.index, len(self.tokenizer.encode(node.text)))
+                for node in final_selected_nodes
             ]
             return context, layer_information
 
