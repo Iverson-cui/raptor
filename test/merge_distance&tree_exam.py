@@ -1,3 +1,8 @@
+"""
+If you just want to examine the tree structure, run:
+    python test/merge_distance&tree_exam.py --examine_tree --load_tree path_to_tree.pkl
+"""
+
 from math import log
 import os
 import sys
@@ -531,9 +536,6 @@ if __name__ == "__main__":
     parser.add_argument(
         "--local", action="store_true", help="Run in local mode with SQuAD"
     )
-    parser.add_argument(
-        "--server", action="store_true", help="Run in server mode with TriviaQA"
-    )
     # these 4 hyperparameters can be adjusted
     parser.add_argument("--chunk_size", type=int, default=128)
     parser.add_argument("--n_clusters", type=int, default=50)
@@ -589,8 +591,23 @@ if __name__ == "__main__":
         func = run_experiment
         kwargs = {}
 
-    if args.server:
-        # Server defaults
+    if args.local:
+        # Local mode
+        func(
+            dataset_name="squad",
+            local_test=True,
+            chunk_size=args.chunk_size,
+            n_clusters=args.n_clusters,
+            top_k_clusters=args.top_k_clusters,
+            top_k_chunks=args.top_k_chunks,
+            distance_metric=args.metric,
+            context_limit=args.limit,
+            save_tree_path=args.save_tree,
+            load_tree_path=args.load_tree,
+            **kwargs,
+        )
+    else:
+        # Server mode (default)
         func(
             dataset_name="squad",
             local_test=False,
@@ -605,19 +622,4 @@ if __name__ == "__main__":
             save_tree_path=args.save_tree,
             load_tree_path=args.load_tree,
             **kwargs,
-        )
-    else:
-        # Local defaults (or explicit local flag)
-        func(
-            dataset_name="squad",
-            local_test=True,
-            chunk_size=args.chunk_size,
-            n_clusters=args.n_clusters,
-            top_k_clusters=args.top_k_clusters,
-            top_k_chunks=args.top_k_chunks,
-            distance_metric=args.metric,
-            context_limit=args.limit,
-            save_tree_path=args.save_tree,
-            load_tree_path=args.load_tree,
-            **kwargs
         )

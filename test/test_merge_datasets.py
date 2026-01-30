@@ -1,3 +1,8 @@
+"""
+if you want to test, run:
+python test/test_merge_datasets.py --dataset trivia_qa --freetest --node_info --load_tree path_to_tree.pkl --k_clusters_list x x x --k_chunks_list y y y
+"""
+
 import os
 import sys
 import logging
@@ -541,14 +546,14 @@ if __name__ == "__main__":
     # used in freetest.
     parser.add_argument("--merge_k_chunks", type=int, help="Merge tree: top k chunks")
 
-    # list so used in freetest
+    # used in freetest so it's a list
     parser.add_argument(
         "--k_clusters_list",
         type=int,
         nargs="+",
         help="List of top_k_clusters for freetest",
     )
-    # list so used in freetest
+    # used in freetest so it's a list
     parser.add_argument(
         "--k_chunks_list", type=int, nargs="+", help="List of top_k_chunks for freetest"
     )
