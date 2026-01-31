@@ -1,5 +1,5 @@
 """
-if you want to test, run:
+if you want to test the merge tree performance on the dataset, run:
 python test/test_merge_datasets.py --dataset trivia_qa --freetest --node_info --load_tree path_to_tree.pkl --k_clusters_list x x x --k_chunks_list y y y
 """
 

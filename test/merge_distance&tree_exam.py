@@ -1,6 +1,10 @@
 """
-If you just want to examine the tree structure, run:
-    python test/merge_distance&tree_exam.py --examine_tree --load_tree path_to_tree.pkl
+if you only want to examine it, run:
+    python test/merge_distance\&tree_exam.py --examine_tree --load_tree path_to_tree.pkl
+
+
+If you want to save a tree and examine its tree structure, run:
+    python test/merge_distance&tree_exam.py --chunk_size 256 --n_clusters 400 --save_tree squad256.pkl --examine_tree
 """
 
 from math import log
@@ -295,7 +299,7 @@ def initialize_raptor(
         n_clusters = min(n_clusters, 5)
 
     RAC = RetrievalAugmentationConfig(
-        tree_builder_type="merge",
+        tree_builder_type="kmeans",
         tree_retriever_type="kmeans",
         tb_n_clusters=n_clusters,
         qa_model=qa_model,
