@@ -72,10 +72,6 @@ class KMeansTreeBuilder(TreeBuilder):
         if n_samples == 0:
             return {}
 
-        logging.info(
-            f"Starting Faiss KMeans (GPU={use_gpu}, spherical=True, k={n_clusters})"
-        )
-
         # # Allow disabling faiss via environment variable
         # use_faiss = os.environ.get("USE_FAISS", "True").lower() == "true"
 
@@ -83,7 +79,10 @@ class KMeansTreeBuilder(TreeBuilder):
         #     try:
         # Attempt to use Faiss for KMeans
         use_gpu = faiss.get_num_gpus() if (faiss.get_num_gpus() > 0) else 0
-        logging.info(f"Attempting Faiss KMeans (GPU={use_gpu}, spherical=True)")
+        logging.info(
+            f"Starting Faiss KMeans (GPU={use_gpu}, spherical=True, k={n_clusters})"
+        )
+        # logging.info(f"Attempting Faiss KMeans (GPU={use_gpu}, spherical=True)")
 
         kmeans = faiss.Kmeans(
             d=d,
