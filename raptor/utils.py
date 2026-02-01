@@ -261,7 +261,9 @@ def log_tree_structure(tree, num_samples: int = 5) -> None:
             if not embedding_str:
                 embedding_str = "No embeddings"
 
-            logging.info(f"{node.index:<12} | {children_count:<10} | {text_length:<12} | {str(index_time):<12} | {embedding_str}")
+            logging.info(
+                f"{node.index:<12} | {children_count:<10} | {text_length:<12} | {str(index_count):<12} | {embedding_str}"
+            )
 
         if len(nodes) > num_samples:
             logging.info(f"... and {len(nodes) - num_samples} more nodes")
