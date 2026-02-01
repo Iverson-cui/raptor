@@ -7,6 +7,7 @@ import tiktoken
 from scipy import spatial
 
 from .tree_structures import Node
+import time
 
 logging.basicConfig(format="%(asctime)s - %(message)s", level=logging.INFO)
 
@@ -231,6 +232,7 @@ def log_tree_structure(tree, num_samples: int = 5) -> None:
         logging.error("Tree is None")
         return
 
+    time.sleep(0.5)
     logging.info(f"Total Number of Layers: {tree.num_layers}")
 
     sorted_layers = sorted(tree.layer_to_nodes.keys())
