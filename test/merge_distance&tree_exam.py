@@ -772,6 +772,8 @@ def migrate_tree_schema(tree_path):
     Sets it to 0 if missing.
 
     This is useful because before I add the index_count attribute, nodes in the pkl files do not have this attribute. I need to write another function to migrate old pkl files to the new schema and initialize all of them to 0.
+
+    Use it by: python test/merge_distance\&tree_exam.py --migrate_tree path/to/your/old_tree.pkl
     """
     import pickle
     from raptor.tree_structures import Tree

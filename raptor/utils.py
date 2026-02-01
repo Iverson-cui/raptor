@@ -249,18 +249,18 @@ def log_tree_structure(tree, num_samples: int = 5) -> None:
         for node in nodes_to_display:
             text_length = len(node.text)
             children_count = len(node.children) if node.children else 0
-            index_time = getattr(node, 'index_time', 'N/A')
-            
+            index_count = getattr(node, "index_count", "N/A")
+
             # Get embedding info
             embedding_info = {}
             for model_name, embedding in node.embeddings.items():
                 if isinstance(embedding, (list, np.ndarray)):
                     embedding_info[model_name] = len(embedding)
-            
+
             embedding_str = ", ".join([f"{model}: dim={dim}" for model, dim in embedding_info.items()])
             if not embedding_str:
                 embedding_str = "No embeddings"
-            
+
             logging.info(f"{node.index:<12} | {children_count:<10} | {text_length:<12} | {str(index_time):<12} | {embedding_str}")
 
         if len(nodes) > num_samples:
