@@ -766,6 +766,48 @@ def update_kmean_with_index(source_tree_path, target_tree_path):
     logging.info("Update complete.")
 
 
+def migrate_tree_schema(tree_path):
+    """
+    Migrates an old tree pickle file to include the 'index_count' attribute for all nodes.
+    Sets it to 0 if missing.
+
+    This is useful because before I add the index_count attribute, nodes in the pkl files do not have this attribute. I need to write another function to migrate old pkl files to the new schema and initialize all of them to 0.
+    """
+    import pickle
+    from raptor.tree_structures import Tree
+
+    logging.info(f"Loading tree for migration from {tree_path}...")
+    try:
+        with open(tree_path, "rb") as f:
+            tree = pickle.load(f)
+    except Exception as e:
+        logging.error(f"Failed to load tree: {e}")
+        return
+
+    if not isinstance(tree, Tree):
+        logging.error("Loaded object is not a valid Tree.")
+        return
+
+    updated_count = 0
+    # check all nodes
+    if hasattr(tree, "all_nodes") and tree.all_nodes:
+        for node in tree.all_nodes.values():
+            if not hasattr(node, "index_count"):
+                node.index_count = 0
+                updated_count += 1
+
+    if updated_count > 0:
+        logging.info(f"Migrated {updated_count} nodes (added index_count=0).")
+        logging.info(f"Saving migrated tree back to {tree_path}...")
+        with open(tree_path, "wb") as f:
+            pickle.dump(tree, f)
+        logging.info("Migration successful.")
+    else:
+        logging.info(
+            "Tree already appears to have index_count on all nodes. No changes made."
+        )
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Analyze Chunk Distances in RAPTOR")
     parser.add_argument(
@@ -835,10 +877,18 @@ if __name__ == "__main__":
         default=None,
         help="Path to target tree (K-Means Tree) to update",
     )
+    parser.add_argument(
+        "--migrate_tree",
+        type=str,
+        default=None,
+        help="Path to a tree pickle file to migrate (add missing index_count attribute)",
+    )
 
     args = parser.parse_args()
 
-    if args.update_index_tree:
+    if args.migrate_tree:
+        migrate_tree_schema(args.migrate_tree)
+    elif args.update_index_tree:
         if not args.source_tree or not args.target_tree:
             print(
                 "Error: --source_tree and --target_tree are required for --update_index_tree"
@@ -855,10 +905,10 @@ if __name__ == "__main__":
         func = examine_redundancy_children
         kwargs = {}
     else:
-        func = compare_search_methods
+        func = run_experiment
         kwargs = {}
 
-    if not args.update_index_tree:
+    if not args.migrate_tree and not args.update_index_tree:
         if args.local:
             # Local mode
             func(
