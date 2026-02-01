@@ -218,10 +218,14 @@ def indices_of_nearest_neighbors_from_distances(distances: List[float]) -> np.nd
     return np.argsort(distances)
 
 
-def log_tree_structure(tree) -> None:
+def log_tree_structure(tree, num_samples: int = 5) -> None:
     """
     Logs the structure of the tree, including the number of layers, nodes in each layer,
-    text length, and embedding information for each node.
+    text length, embedding information, and index time for each node.
+    
+    Args:
+        tree: The tree structure to log.
+        num_samples (int): Number of nodes to display per layer. Defaults to 5.
     """
     if tree is None:
         logging.error("Tree is None")
@@ -237,14 +241,15 @@ def log_tree_structure(tree) -> None:
         logging.info(f"[ Layer {layer_idx} ] - {layer_name}")
         logging.info(f"Count: {len(nodes)} nodes")
 
-        logging.info(f"{'Node Index':<12} | {'Children':<10} | {'Text Length':<12} | {'Embeddings'}")
-        logging.info("-" * 80)
+        logging.info(f"{'Node Index':<12} | {'Children':<10} | {'Text Length':<12} | {'Index Time':<12} | {'Embeddings'}")
+        logging.info("-" * 100)
 
-        nodes_to_display = nodes[:5] if len(nodes) > 5 else nodes
+        nodes_to_display = nodes[:num_samples] if len(nodes) > num_samples else nodes
 
         for node in nodes_to_display:
             text_length = len(node.text)
             children_count = len(node.children) if node.children else 0
+            index_time = getattr(node, 'index_time', 'N/A')
             
             # Get embedding info
             embedding_info = {}
@@ -256,7 +261,7 @@ def log_tree_structure(tree) -> None:
             if not embedding_str:
                 embedding_str = "No embeddings"
             
-            logging.info(f"{node.index:<12} | {children_count:<10} | {text_length:<12} | {embedding_str}")
+            logging.info(f"{node.index:<12} | {children_count:<10} | {text_length:<12} | {str(index_time):<12} | {embedding_str}")
 
-        if len(nodes) > 5:
-            logging.info(f"... and {len(nodes) - 5} more nodes")
+        if len(nodes) > num_samples:
+            logging.info(f"... and {len(nodes) - num_samples} more nodes")

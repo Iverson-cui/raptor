@@ -85,6 +85,9 @@ def run_brute_force_search(
     target_node, leaf_nodes, embedding_model_name, distance_metric, top_k_chunks
 ):
     """
+    When merging a chunk to its semantically closest chunk, we need to find it, i.e., search it first.
+    Two way to search for closest chunk: brute force search and cluster-based search.
+    This run_brute_force_search is the first method.
     Performs brute force search to find closest chunks to the target node.
     """
     logging.info("-" * 40)
@@ -136,6 +139,7 @@ def run_cluster_based_search(
     top_k_chunks,
 ):
     """
+    This is the second method.
     Performs cluster-based search to find closest chunks to the target node.
     """
     logging.info("-" * 40)
@@ -229,9 +233,10 @@ def initialize_raptor(
     distance_metric="cosine"
 ):
     """
-    if save_tree_path is provided, saves the built tree to that path.
-    So if you only want to save a tree, just call this.
-    overlap_calculate and run_experiment both called this initially.
+    This function is a helper function.
+    You can pre-compute tree structure and store it. if save_tree_path is provided, saves the built tree to that path.
+    So if you only want to save a tree, just call this function.
+    overlap_calculate and run_experiment also both call this function initially.
     """
     logging.info(
         f"Starting experiment: Dataset={dataset_name}, Local={local_test}, Metric={distance_metric}"
@@ -340,7 +345,8 @@ def overlap_calculate(
     load_tree_path=None
 ):
     """
-    Docstring for overlap_calculate
+    This function analyse the overlap between two search methods over multiple samples.
+    The result can be used to demonstrate that the cluster-based search is reasonable.
 
     :param dataset_name: Description
     :param local_test: Description
@@ -440,7 +446,7 @@ def overlap_calculate(
     print(f"Context Proximity details: {context_probs}")
 
 
-def run_experiment(
+def compare_search_methods(
     dataset_name="squad",
     local_test=True,
     chunk_size=128,
@@ -451,7 +457,7 @@ def run_experiment(
     distance_metric="cosine",
     context_limit=None,
     save_tree_path=None,
-    load_tree_path=None
+    load_tree_path=None,
 ):
     """
     Run two search and output closest chunks. Finally compare overlap.
@@ -525,6 +531,21 @@ def examine_tree_structure(
     save_tree_path=None,
     load_tree_path=None,
 ):
+    """
+    This function is used to load a tree and log its structure out to the terminal.
+
+    :param dataset_name: Description
+    :param local_test: Description
+    :param chunk_size: Description
+    :param n_clusters: Description
+    :param top_k_clusters: Description
+    :param top_k_chunks: Description
+    :param target_chunk_idx: Description
+    :param distance_metric: Description
+    :param context_limit: Description
+    :param save_tree_path: Description
+    :param load_tree_path: Description
+    """
     RA = initialize_raptor(
         dataset_name=dataset_name,
         local_test=local_test,
@@ -535,7 +556,7 @@ def examine_tree_structure(
         load_tree_path=load_tree_path,
         distance_metric=distance_metric,
     )
-    log_tree_structure(RA.tree)
+    log_tree_structure(RA.tree, num_samples=10)
 
 
 def examine_redundancy_children(
@@ -553,8 +574,10 @@ def examine_redundancy_children(
 ):
     """
     Examines the redundancy of children in the tree.
+    This is used in merge tree v2.
     Checks if the tree is a 'merge tree' (3 layers, Layer 0 count == Layer 1 count)
     and counts how many times Layer 0 nodes are referenced by Layer 1 nodes.
+    But this function does nothing to the data structure. It just output information and summaries.
     """
     RA = initialize_raptor(
         dataset_name=dataset_name,
@@ -663,7 +686,7 @@ def examine_redundancy_children(
 
 def update_kmean_with_index(source_tree_path, target_tree_path):
     """
-    Updates the target tree (e.g., K-Mean Tree) with index usage counts derived from the source tree (e.g., Merge Tree).
+    Compared to examine_redundancy_children which only output information about redundancy, this function updates this information to the target k-mean tree so that it can be used later directly without re-calculation.
     """
     import pickle
     from raptor.tree_structures import Tree
@@ -832,7 +855,7 @@ if __name__ == "__main__":
         func = examine_redundancy_children
         kwargs = {}
     else:
-        func = run_experiment
+        func = compare_search_methods
         kwargs = {}
 
     if not args.update_index_tree:
