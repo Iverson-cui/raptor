@@ -644,6 +644,17 @@ def examine_redundancy_children(
     print(f"Average times a bottom node is indexed: {avg_count:.4f}")
     print(f"Most Indexed Node Index: {max_index}")
     print(f"Count of Most Indexed Node: {max_count}")
+
+    # Calculate and print distribution of index counts
+    print("\nIndex Count Distribution (times indexed -> number of nodes):")
+    distribution = {}
+    for count in layer_0_usage_counts.values():
+        distribution[count] = distribution.get(count, 0) + 1
+    
+    for count in range(max_count, -1, -1):
+        if count in distribution:
+            print(f"Nodes indexed {count} times: {distribution[count]}")
+
     print("-" * 40)
 
 
