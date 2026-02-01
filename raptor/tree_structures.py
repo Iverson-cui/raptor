@@ -6,11 +6,12 @@ class Node:
     Represents a node in the hierarchical tree structure.
     """
 
-    def __init__(self, text: str, index: int, children: Set[int], embeddings) -> None:
+    def __init__(self, text: str, index: int, children: Set[int], embeddings, index_count: int = 0) -> None:
         self.text = text
         self.index = index
         self.children = children
         self.embeddings = embeddings
+        self.index_count = index_count
 
 
 class Tree:

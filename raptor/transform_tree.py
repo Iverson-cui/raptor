@@ -20,7 +20,7 @@ def transform_tree(
     input_path, output_path, n_clusters, merge_top_k_clusters, merge_top_k_chunks
 ):
     """
-    Transform a k-mean tree into a merge tree based on its leaf nodes.
+    Transform a k-mean tree into a merge tree version 1 based on its leaf nodes.
 
     :param input_path: input pkl tree path
     :param output_path: Description
@@ -137,6 +137,110 @@ def transform_tree(
     logging.info("Done.")
 
 
+def transform_tree_v2(
+    input_path, output_path, n_clusters, merge_top_k_clusters, merge_top_k_chunks
+):
+    """
+    Transform a k-mean tree into a merge tree version 2 (Exclusive Merge) based on its leaf nodes.
+    This version uses the updated MergeTreeBuilder which implements the exclusive merge strategy:
+    - Calculates 'hotness' (index count) for all nodes.
+    - Merges nodes starting from the hottest.
+    - Removes merged nodes from the pool (Exclusive).
+    """
+    # load k-mean tree
+    logging.info(f"Loading tree from {input_path}")
+    try:
+        with open(input_path, "rb") as f:
+            old_tree = pickle.load(f)
+    except FileNotFoundError:
+        logging.error(f"Input file not found: {input_path}")
+        return
+    except Exception as e:
+        logging.error(f"Error loading tree: {e}")
+        return
+
+    if not isinstance(old_tree, Tree):
+        raise ValueError("Loaded object is not a Tree instance")
+
+    logging.info(f"Loaded tree with {old_tree.num_layers} layers.")
+
+    # Extract Layer 0 nodes
+    if 0 not in old_tree.layer_to_nodes:
+        raise ValueError("Tree does not have Layer 0 (leaf nodes).")
+
+    leaf_nodes_list = old_tree.layer_to_nodes[0]
+    logging.info(f"Found {len(leaf_nodes_list)} leaf nodes.")
+
+    # Prepare data structures
+    new_layer_to_nodes = {0: leaf_nodes_list}
+    new_all_tree_nodes = {node.index: node for node in leaf_nodes_list}
+
+    # Determine embedding model
+    first_node = leaf_nodes_list[0]
+    embedding_model_name = list(first_node.embeddings.keys())[0]
+    logging.info(f"Detected embedding model: {embedding_model_name}")
+
+    device = "cuda:0"
+    logging.info(f"Using device: {device}")
+
+    if "BGEM3" in embedding_model_name:
+        embedding_model = BGEM3Model(device=device)
+        embedding_models = {embedding_model_name: embedding_model}
+    elif "SBert" in embedding_model_name or "MultiQA" in embedding_model_name:
+        embedding_model = SBertEmbeddingModel(device=device)
+        embedding_models = {embedding_model_name: embedding_model}
+    else:
+        logging.warning(
+            f"Unknown embedding model '{embedding_model_name}'. Defaulting to BGEM3."
+        )
+        embedding_model = BGEM3Model(device=device)
+        embedding_models = {embedding_model_name: embedding_model}
+
+    # Configure MergeTreeBuilder
+    builder_config = MergeTreeConfig(
+        n_clusters=n_clusters,
+        merge_top_k_clusters=merge_top_k_clusters,
+        merge_top_k_chunks=merge_top_k_chunks,
+        tokenizer=None,
+        max_tokens=100,
+        num_layers=5,
+        threshold=0.5,
+        top_k=5,
+        selection_mode="top_k",
+        summarization_length=100,
+        summarization_model=None,
+        embedding_models=embedding_models,
+        cluster_embedding_model=embedding_model_name,
+    )
+
+    builder = MergeTreeBuilder(builder_config)
+
+    # Construct the tree
+    current_level_nodes = new_all_tree_nodes.copy()  # Layer 0 nodes
+
+    logging.info("Starting Merge Tree V2 (Exclusive Merge) construction...")
+    builder.construct_tree(current_level_nodes, new_all_tree_nodes, new_layer_to_nodes)
+
+    # Determine root nodes
+    max_layer = max(new_layer_to_nodes.keys())
+    root_nodes = {node.index: node for node in new_layer_to_nodes[max_layer]}
+
+    new_tree = Tree(
+        all_nodes=new_all_tree_nodes,
+        root_nodes=root_nodes,
+        leaf_nodes=leaf_nodes_list,
+        num_layers=max_layer + 1,
+        layer_to_nodes=new_layer_to_nodes,
+    )
+
+    logging.info(f"New tree V2 constructed with {new_tree.num_layers} layers.")
+
+    logging.info(f"Saving to {output_path}")
+    with open(output_path, "wb") as f:
+        pickle.dump(new_tree, f)
+    logging.info("Done.")
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Transform a KMeans Tree to a Merge Tree"
@@ -150,13 +254,25 @@ if __name__ == "__main__":
     parser.add_argument(
         "--merge_k_chunks", type=int, default=10, help="Merge top K chunks"
     )
+    parser.add_argument(
+        "--v2", action="store_true", help="Use Version 2 (Exclusive Merge)"
+    )
 
     args = parser.parse_args()
 
-    transform_tree(
-        args.input_tree,
-        args.output_tree,
-        args.n_clusters,
-        args.merge_k_clusters,
-        args.merge_k_chunks,
-    )
+    if args.v2:
+        transform_tree_v2(
+            args.input_tree,
+            args.output_tree,
+            args.n_clusters,
+            args.merge_k_clusters,
+            args.merge_k_chunks,
+        )
+    else:
+        transform_tree(
+            args.input_tree,
+            args.output_tree,
+            args.n_clusters,
+            args.merge_k_clusters,
+            args.merge_k_chunks,
+        )

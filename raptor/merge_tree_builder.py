@@ -145,6 +145,7 @@ class MergeTreeBuilder(KMeansTreeBuilder):
             return {}
 
         # extract embeddings from each node
+        # embeddings_layer0 contains a list of embeddings (list of list)
         embeddings_layer0 = get_embeddings(
             node_list_layer0, self.cluster_embedding_model
         )
@@ -226,7 +227,15 @@ class MergeTreeBuilder(KMeansTreeBuilder):
         #     dists_to_centroids = np.array(dists_to_centroids)
         # # ...existing code...
 
-        # Iterate over each node to find its partner
+        # --- Pre-calculate Neighbors and Index Counts ---
+        logging.info("Pre-calculating neighbors to determine index counts...")
+
+        # target_to_neighbor is a dict mapping target node index(int) to its best neighbor Node
+        target_to_neighbor = {}
+        # index_counts is a dict mapping node index(int) to how many times it was chosen as neighbor(int)
+        index_counts = {node.index: 0 for node in node_list_layer0}
+
+        # for every node in layer 0
         for i, target_node in enumerate(node_list_layer0):
             # obtain i-th embedding
             target_embedding = embeddings_layer0[i]
@@ -245,6 +254,7 @@ class MergeTreeBuilder(KMeansTreeBuilder):
             candidate_indices_local = []
             # append all of the node indices in the top clusters in candidate_indices_local
             for c_idx in top_clusters:
+                # gather node indices in the candidate clusters
                 candidate_indices_local.extend(cluster_to_node_indices[c_idx])
 
             # Filter candidates (exclude self)
@@ -256,6 +266,8 @@ class MergeTreeBuilder(KMeansTreeBuilder):
 
             if candidate_indices_local:
                 # 3c. Find nearest neighbor among candidates
+                # candidate_embeddings is a list of embeddings
+                # includes all of the node embeddings in candidate_indices_local
                 candidate_embeddings = [
                     embeddings_layer0[idx] for idx in candidate_indices_local
                 ]
@@ -268,7 +280,9 @@ class MergeTreeBuilder(KMeansTreeBuilder):
 
                 # Find min distance
                 min_dist_idx = np.argmin(dists_candidates)
+                # find min distance index
                 best_neighbor_local_idx = candidate_indices_local[min_dist_idx]
+                # find min distance node
                 best_neighbor_node = node_list_layer0[best_neighbor_local_idx]
             else:
                 # Fallback if no candidates (e.g. single node in top clusters? unlikely)
@@ -280,30 +294,106 @@ class MergeTreeBuilder(KMeansTreeBuilder):
                 )
                 best_neighbor_node = target_node
 
-            # 3d. Create Merged Node
-            # We assume text is simple concatenation.
-            merged_text = f"{target_node.text} {best_neighbor_node.text}"
-
-            # Create embedding for new text
-            # This uses the create_node logic which calls embedding models
-            # Note: create_node increments index automatically? No, we pass index.
-
-            # We manually create node to control embeddings more efficiently if possible?
-            # TreeBuilder.create_node calls all embedding models.
-            # It's better to use create_node to ensure consistency (e.g. if multiple embedding models)
-
-            # merged node's children are the indices of the two original nodes
-            children = {target_node.index, best_neighbor_node.index}
-
-            # Create merged node
-            index, merged_node = self.create_node(
-                next_node_index, merged_text, children
-            )
-            new_level_nodes[index] = merged_node
-            next_node_index += 1
+            # after finding the best neighbor node, update 2 dicts
+            target_to_neighbor[target_node.index] = best_neighbor_node
+            index_counts[best_neighbor_node.index] += 1
 
             if (i + 1) % 100 == 0:
-                logging.info(f"Merged {i + 1}/{n_samples} nodes")
+                logging.info(f"Pre-calculated {i + 1}/{n_samples} neighbors")
+
+        # Update nodes.attribute with index counts
+        for node in node_list_layer0:
+            node.index_count = index_counts[node.index]
+
+        # Sort nodes by index_count descending (Hot nodes first)
+        sorted_nodes = sorted(
+            node_list_layer0, key=lambda n: n.index_count, reverse=True
+        )
+
+        logging.info(
+            "Step 2: Merging chunks (sorted by index frequency, exclusive merge)..."
+        )
+
+        # Mapping to access embeddings/dists by node.index
+        # it's like 42:0 103:1 7:2 etc.
+        node_index_to_matrix_idx = {
+            node.index: i for i, node in enumerate(node_list_layer0)
+        }
+        used_indices = set()
+
+        # Iterate over sorted nodes to create merged nodes
+        for i, target_node in enumerate(sorted_nodes):
+            if target_node.index in used_indices:
+                continue
+
+            # We need to find a partner from UNUSED nodes
+            matrix_idx = node_index_to_matrix_idx[target_node.index]
+            # obtain the embedding vector of the target node
+            target_embedding = embeddings_layer0[matrix_idx]
+
+            # obtain the cluster distance of the target node
+            cluster_dists = dists_to_centroids[matrix_idx]
+            # sort the cluster distances to get top clusters
+            sorted_cluster_indices = np.argsort(cluster_dists)
+            # obtain the top clusters
+            top_clusters = sorted_cluster_indices[: self.merge_top_k_clusters]
+
+            # obtain the candidate chunks by extending node indices in the top clusters
+            candidate_matrix_indices = []
+            for c_idx in top_clusters:
+                candidate_matrix_indices.extend(cluster_to_node_indices[c_idx])
+
+            # Filter candidates: Must not be used, must not be self
+            valid_candidates_matrix_idxs = [
+                idx
+                for idx in candidate_matrix_indices
+                if node_list_layer0[idx].index not in used_indices
+                and node_list_layer0[idx].index != target_node.index
+            ]
+
+            best_neighbor_node = None
+
+            if valid_candidates_matrix_idxs:
+                # Find best among valid candidates
+                # gather candidate embedding vectors
+                candidate_embeddings = [
+                    embeddings_layer0[idx] for idx in valid_candidates_matrix_idxs
+                ]
+                # calculate distance embeddings
+                dists_candidates = distances_from_embeddings(
+                    target_embedding, candidate_embeddings, distance_metric="cosine"
+                )
+                # find closest from candidate_embeddings
+                min_dist_idx = np.argmin(dists_candidates)
+                # we cannot directly use min_dist_idx in the node_list_layer0 because a node's position is not necessarily its index
+                # So we need to use matrix indexes to do conversion
+                best_neighbor_matrix_idx = valid_candidates_matrix_idxs[min_dist_idx]
+                best_neighbor_node = node_list_layer0[best_neighbor_matrix_idx]
+
+                # Merge
+                merged_text = f"{target_node.text} {best_neighbor_node.text}"
+                children = {target_node.index, best_neighbor_node.index}
+
+                # Mark partner as used
+                used_indices.add(best_neighbor_node.index)
+
+            else:
+                # No partner found (orphan or all neighbors taken)
+                # Promote as single node
+                # logging.info(f"Node {target_node.index} has no available neighbors. Promoting as single node.")
+                merged_text = target_node.text
+                children = {target_node.index}
+
+            # Create the new node (Merged or Single)
+            index, new_node = self.create_node(next_node_index, merged_text, children)
+            new_level_nodes[index] = new_node
+            next_node_index += 1
+
+            # Mark self as used
+            used_indices.add(target_node.index)
+
+            if (len(new_level_nodes)) % 100 == 0:
+                logging.info(f"Created {len(new_level_nodes)} Layer 1 nodes so far...")
 
         # Register Layer 1
         layer_to_nodes[1] = list(new_level_nodes.values())
