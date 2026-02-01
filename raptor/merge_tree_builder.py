@@ -135,6 +135,7 @@ class MergeTreeBuilder(KMeansTreeBuilder):
         all_tree_nodes: Dict[int, Node],
         layer_to_nodes: Dict[int, List[Node]],
         use_multithreading: bool = True,
+        use_existing_index_counts: bool = False,
     ) -> Dict[int, Node]:
 
         logging.info("Using Merge TreeBuilder")
@@ -227,83 +228,87 @@ class MergeTreeBuilder(KMeansTreeBuilder):
         #     dists_to_centroids = np.array(dists_to_centroids)
         # # ...existing code...
 
-        # --- Pre-calculate Neighbors and Index Counts ---
-        logging.info("Pre-calculating neighbors to determine index counts...")
+        # --- Pre-calculate Neighbors and Index Counts (Conditional) ---
+        if not use_existing_index_counts:
+            logging.info("Pre-calculating neighbors to determine index counts...")
 
-        # target_to_neighbor is a dict mapping target node index(int) to its best neighbor Node
-        target_to_neighbor = {}
-        # index_counts is a dict mapping node index(int) to how many times it was chosen as neighbor(int)
-        index_counts = {node.index: 0 for node in node_list_layer0}
+            # target_to_neighbor is a dict mapping target node index(int) to its best neighbor Node
+            target_to_neighbor = {}
+            # index_counts is a dict mapping node index(int) to how many times it was chosen as neighbor(int)
+            index_counts = {node.index: 0 for node in node_list_layer0}
 
-        # for every node in layer 0
-        for i, target_node in enumerate(node_list_layer0):
-            # obtain i-th embedding
-            target_embedding = embeddings_layer0[i]
+            # for every node in layer 0
+            for i, target_node in enumerate(node_list_layer0):
+                # obtain i-th embedding
+                target_embedding = embeddings_layer0[i]
 
-            # 3a. Find top K clusters
-            # dists_to_centroids[i] is array of distances to each cluster
-            cluster_dists = dists_to_centroids[i]
-            sorted_cluster_indices = np.argsort(
-                cluster_dists
-            )  # Ascending order (smallest distance first)
+                # 3a. Find top K clusters
+                # dists_to_centroids[i] is array of distances to each cluster
+                cluster_dists = dists_to_centroids[i]
+                sorted_cluster_indices = np.argsort(
+                    cluster_dists
+                )  # Ascending order (smallest distance first)
 
-            # In this step we choose self.merge_top_k_clusters clusters to search for neighbors
-            top_clusters = sorted_cluster_indices[: self.merge_top_k_clusters]
+                # In this step we choose self.merge_top_k_clusters clusters to search for neighbors
+                top_clusters = sorted_cluster_indices[: self.merge_top_k_clusters]
 
-            # 3b. Gather candidate nodes
-            candidate_indices_local = []
-            # append all of the node indices in the top clusters in candidate_indices_local
-            for c_idx in top_clusters:
-                # gather node indices in the candidate clusters
-                candidate_indices_local.extend(cluster_to_node_indices[c_idx])
+                # 3b. Gather candidate nodes
+                candidate_indices_local = []
+                # append all of the node indices in the top clusters in candidate_indices_local
+                for c_idx in top_clusters:
+                    # gather node indices in the candidate clusters
+                    candidate_indices_local.extend(cluster_to_node_indices[c_idx])
 
-            # Filter candidates (exclude self)
-            candidate_indices_local = [
-                idx for idx in candidate_indices_local if idx != i
-            ]
-
-            best_neighbor_node = None
-
-            if candidate_indices_local:
-                # 3c. Find nearest neighbor among candidates
-                # candidate_embeddings is a list of embeddings
-                # includes all of the node embeddings in candidate_indices_local
-                candidate_embeddings = [
-                    embeddings_layer0[idx] for idx in candidate_indices_local
+                # Filter candidates (exclude self)
+                candidate_indices_local = [
+                    idx for idx in candidate_indices_local if idx != i
                 ]
 
-                # distances_from_embeddings expects list of list as second arg
-                # returns list of distances
-                dists_candidates = distances_from_embeddings(
-                    target_embedding, candidate_embeddings, distance_metric="cosine"
-                )
+                best_neighbor_node = None
 
-                # Find min distance
-                min_dist_idx = np.argmin(dists_candidates)
-                # find min distance index
-                best_neighbor_local_idx = candidate_indices_local[min_dist_idx]
-                # find min distance node
-                best_neighbor_node = node_list_layer0[best_neighbor_local_idx]
-            else:
-                # Fallback if no candidates (e.g. single node in top clusters? unlikely)
-                # Just merge with self or handle gracefully.
-                # Let's fallback to brute force search over all nodes if cluster search fails?
-                # Or just skip merging and use self (duplicated).
-                logging.warning(
-                    f"No candidates found for node {target_node.index}. Duplicating node."
-                )
-                best_neighbor_node = target_node
+                if candidate_indices_local:
+                    # 3c. Find nearest neighbor among candidates
+                    # candidate_embeddings is a list of embeddings
+                    # includes all of the node embeddings in candidate_indices_local
+                    candidate_embeddings = [
+                        embeddings_layer0[idx] for idx in candidate_indices_local
+                    ]
 
-            # after finding the best neighbor node, update 2 dicts
-            target_to_neighbor[target_node.index] = best_neighbor_node
-            index_counts[best_neighbor_node.index] += 1
+                    # distances_from_embeddings expects list of list as second arg
+                    # returns list of distances
+                    dists_candidates = distances_from_embeddings(
+                        target_embedding, candidate_embeddings, distance_metric="cosine"
+                    )
 
-            if (i + 1) % 100 == 0:
-                logging.info(f"Pre-calculated {i + 1}/{n_samples} neighbors")
+                    # Find min distance
+                    min_dist_idx = np.argmin(dists_candidates)
+                    # find min distance index
+                    best_neighbor_local_idx = candidate_indices_local[min_dist_idx]
+                    # find min distance node
+                    best_neighbor_node = node_list_layer0[best_neighbor_local_idx]
+                else:
+                    # Fallback if no candidates (e.g. single node in top clusters? unlikely)
+                    logging.warning(
+                        f"No candidates found for node {target_node.index}. Duplicating node."
+                    )
+                    best_neighbor_node = target_node
 
-        # Update nodes.attribute with index counts
-        for node in node_list_layer0:
-            node.index_count = index_counts[node.index]
+                # after finding the best neighbor node, update 2 dicts
+                target_to_neighbor[target_node.index] = best_neighbor_node
+                index_counts[best_neighbor_node.index] += 1
+
+                if (i + 1) % 100 == 0:
+                    logging.info(f"Pre-calculated {i + 1}/{n_samples} neighbors")
+
+            # Update nodes.attribute with index counts
+            for node in node_list_layer0:
+                node.index_count = index_counts[node.index]
+        else:
+            logging.info("Using existing index_counts from nodes. Skipping pre-calculation.")
+            # Ensure all nodes have index_count
+            for node in node_list_layer0:
+                if not hasattr(node, "index_count"):
+                    node.index_count = 0
 
         # Sort nodes by index_count descending (Hot nodes first)
         sorted_nodes = sorted(

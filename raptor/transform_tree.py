@@ -224,7 +224,12 @@ def transform_tree_v2(
     current_level_nodes = new_all_tree_nodes.copy()  # Layer 0 nodes
 
     logging.info("Starting Merge Tree V2 (Exclusive Merge) construction...")
-    builder.construct_tree(current_level_nodes, new_all_tree_nodes, new_layer_to_nodes)
+    builder.construct_tree(
+        current_level_nodes,
+        new_all_tree_nodes,
+        new_layer_to_nodes,
+        use_existing_index_counts=True,
+    )
 
     # Determine root nodes
     max_layer = max(new_layer_to_nodes.keys())
