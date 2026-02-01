@@ -1,10 +1,10 @@
 """
-if you only want to examine it, run:
-    python test/merge_distance\&tree_exam.py --examine_tree --load_tree path_to_tree.pkl
+if you only want to examine the tree structure, run:
+    python test/merge_distance\&tree_exam.py --examine_tree_structure --load_tree path_to_tree.pkl
 
 
 If you want to save a tree and examine its tree structure, run:
-    python test/merge_distance&tree_exam.py --chunk_size 256 --n_clusters 400 --save_tree squad256.pkl --examine_tree
+    python test/merge_distance&tree_exam.py --chunk_size 256 --n_clusters 400 --save_tree squad256.pkl --examine_tree_structure
 """
 
 from math import log
@@ -509,7 +509,7 @@ def run_experiment(
     print(f"\nOverlap between methods: {overlap}/{top_k_chunks}")
 
 
-def examine_tree(
+def examine_tree_structure(
     dataset_name="squad",
     local_test=True,
     chunk_size=128,
@@ -533,6 +533,118 @@ def examine_tree(
         distance_metric=distance_metric,
     )
     log_tree_structure(RA.tree)
+
+
+def examine_redundancy_children(
+    dataset_name="squad",
+    local_test=True,
+    chunk_size=128,
+    n_clusters=50,
+    top_k_clusters=5,
+    top_k_chunks=10,
+    target_chunk_idx=None,
+    distance_metric="cosine",
+    context_limit=None,
+    save_tree_path=None,
+    load_tree_path=None,
+):
+    """
+    Examines the redundancy of children in the tree.
+    Checks if the tree is a 'merge tree' (3 layers, Layer 0 count == Layer 1 count)
+    and counts how many times Layer 0 nodes are referenced by Layer 1 nodes.
+    """
+    RA = initialize_raptor(
+        dataset_name=dataset_name,
+        local_test=local_test,
+        chunk_size=chunk_size,
+        n_clusters=n_clusters,
+        context_limit=context_limit,
+        save_tree_path=save_tree_path,
+        load_tree_path=load_tree_path,
+        distance_metric=distance_metric,
+    )
+
+    if RA is None:
+        logging.error("Failed to initialize RAPTOR.")
+        return
+
+    tree = RA.tree
+    layers = sorted(tree.layer_to_nodes.keys())
+
+    # 1. Check if tree matches 'Merge Tree' criteria
+    # Criteria: 3 layers, and Layer 0 and Layer 1 have the same number of nodes.
+    print(f"\nExaminining Tree Structure for Redundancy...")
+    print(f"Layers found: {layers}")
+    
+    if len(layers) != 3:
+        print(f"Structure Mismatch: Tree has {len(layers)} layers (Expected 3 for this check).")
+        # Depending on strictness, we might want to return here. 
+        # But let's print the info and see if we can continue or if it's pointless.
+        # If we don't have layer 0 and 1, we definitely can't continue.
+        if 0 not in layers or 1 not in layers:
+            print("Cannot proceed: Missing Layer 0 or Layer 1.")
+            return
+
+    len_layer_0 = len(tree.layer_to_nodes[0])
+    len_layer_1 = len(tree.layer_to_nodes[1])
+
+    print(f"Nodes in Layer 0: {len_layer_0}")
+    print(f"Nodes in Layer 1: {len_layer_1}")
+
+    if len_layer_0 != len_layer_1:
+        print(f"Structure Mismatch: Layer 0 and Layer 1 counts differ.")
+    else:
+        print("Structure Match: Layer 0 and Layer 1 have equal node counts.")
+
+    # 2. Analyze Redundancy
+    # Count how many times each Layer 0 node is a child of a Layer 1 node.
+    layer_0_usage_counts = {}
+    
+    # Initialize counts for all known leaf nodes to 0
+    # Assuming layer 0 nodes are the leaves or at least the bottom layer
+    for node in tree.layer_to_nodes[0]:
+        layer_0_usage_counts[node.index] = 0
+
+    layer_1_nodes = tree.layer_to_nodes[1]
+    
+    total_references = 0
+    
+    for node in layer_1_nodes:
+        if node.children:
+            for child_index in node.children:
+                if child_index not in layer_0_usage_counts:
+                    # This might happen if child is not in the explicit layer 0 list 
+                    # (should not happen in a consistent tree)
+                    layer_0_usage_counts[child_index] = 0
+                
+                layer_0_usage_counts[child_index] += 1
+                total_references += 1
+
+    # Find most indexed node
+    max_index = -1
+    max_count = -1
+    
+    # Sort for consistent output if ties
+    sorted_indices = sorted(layer_0_usage_counts.keys())
+    
+    for idx in sorted_indices:
+        count = layer_0_usage_counts[idx]
+        if count > max_count:
+            max_count = count
+            max_index = idx
+
+    # Calculate distribution statistics
+    counts = list(layer_0_usage_counts.values())
+    avg_count = sum(counts) / len(counts) if counts else 0
+    
+    # 3. Output Summary
+    print("-" * 40)
+    print(f"Redundancy Analysis Summary:")
+    print(f"Total child references found in Layer 1: {total_references}")
+    print(f"Average times a bottom node is indexed: {avg_count:.4f}")
+    print(f"Most Indexed Node Index: {max_index}")
+    print(f"Count of Most Indexed Node: {max_count}")
+    print("-" * 40)
 
 
 if __name__ == "__main__":
@@ -578,9 +690,14 @@ if __name__ == "__main__":
         help="Number of samples for overlap calculation",
     )
     parser.add_argument(
-        "--examine_tree",
+        "--examine_tree_structure",
         action="store_true",
         help="Examine the tree structure",
+    )
+    parser.add_argument(
+        "--examine_redundancy",
+        action="store_true",
+        help="Examine redundancy of children in the tree",
     )
 
     args = parser.parse_args()
@@ -588,8 +705,11 @@ if __name__ == "__main__":
     if args.overlap_test:
         func = overlap_calculate
         kwargs = {"num_samples": args.num_samples}
-    elif args.examine_tree:
-        func = examine_tree
+    elif args.examine_tree_structure:
+        func = examine_tree_structure
+        kwargs = {}
+    elif args.examine_redundancy:
+        func = examine_redundancy_children
         kwargs = {}
     else:
         func = run_experiment
