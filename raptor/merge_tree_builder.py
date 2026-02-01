@@ -410,8 +410,8 @@ class MergeTreeBuilder(KMeansTreeBuilder):
         embeddings_np_layer1 = np.array(embeddings_layer1, dtype=np.float32)
 
         n_samples_l1 = len(node_list_layer1)
-        # TODO: The 2 clustering use the same n_clusters parameters because we have the same chunks
-        n_clusters_final = min(self.n_clusters, n_samples_l1)
+        # use half of self.n_clusters for Layer 2
+        n_clusters_final = min(self.n_clusters // 2, n_samples_l1)
 
         if n_clusters_final > 0:
             centroids_final, labels_final = self._perform_kmeans(

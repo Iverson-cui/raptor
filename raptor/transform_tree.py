@@ -1,3 +1,8 @@
+"""
+If you want to use this file to transform tree, don't need to specify input and output file flag:
+    python raptor/transform_tree.py pkl_files/squad_128.pkl pkl_files/squad_128m256v2.pkl --n_clusters 250 --v2 --merge_k_chunks 3 --merge_k_clusters 500
+"""
+
 import argparse
 import pickle
 import logging

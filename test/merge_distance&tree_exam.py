@@ -5,6 +5,9 @@ if you only want to examine the tree structure, run:
 
 If you want to save a tree and examine its tree structure, run:
     python test/merge_distance&tree_exam.py --chunk_size 256 --n_clusters 400 --save_tree squad256.pkl --examine_tree_structure
+
+Update index information from a merge tree to the corresponding k-mean tree:
+    python test/merge_distance\&tree_exam.py --update_index_tree --source_tree path_to_merge_tree.pkl --target_tree path_to_kmean_tree.pkl
 """
 
 from math import log
@@ -575,10 +578,10 @@ def examine_redundancy_children(
     # Criteria: 3 layers, and Layer 0 and Layer 1 have the same number of nodes.
     print(f"\nExaminining Tree Structure for Redundancy...")
     print(f"Layers found: {layers}")
-    
+
     if len(layers) != 3:
         print(f"Structure Mismatch: Tree has {len(layers)} layers (Expected 3 for this check).")
-        # Depending on strictness, we might want to return here. 
+        # Depending on strictness, we might want to return here.
         # But let's print the info and see if we can continue or if it's pointless.
         # If we don't have layer 0 and 1, we definitely can't continue.
         if 0 not in layers or 1 not in layers:
@@ -599,34 +602,34 @@ def examine_redundancy_children(
     # 2. Analyze Redundancy
     # Count how many times each Layer 0 node is a child of a Layer 1 node.
     layer_0_usage_counts = {}
-    
+
     # Initialize counts for all known leaf nodes to 0
     # Assuming layer 0 nodes are the leaves or at least the bottom layer
     for node in tree.layer_to_nodes[0]:
         layer_0_usage_counts[node.index] = 0
 
     layer_1_nodes = tree.layer_to_nodes[1]
-    
+
     total_references = 0
-    
+
     for node in layer_1_nodes:
         if node.children:
             for child_index in node.children:
                 if child_index not in layer_0_usage_counts:
-                    # This might happen if child is not in the explicit layer 0 list 
+                    # This might happen if child is not in the explicit layer 0 list
                     # (should not happen in a consistent tree)
                     layer_0_usage_counts[child_index] = 0
-                
+
                 layer_0_usage_counts[child_index] += 1
                 total_references += 1
 
     # Find most indexed node
     max_index = -1
     max_count = -1
-    
+
     # Sort for consistent output if ties
     sorted_indices = sorted(layer_0_usage_counts.keys())
-    
+
     for idx in sorted_indices:
         count = layer_0_usage_counts[idx]
         if count > max_count:
@@ -636,7 +639,7 @@ def examine_redundancy_children(
     # Calculate distribution statistics
     counts = list(layer_0_usage_counts.values())
     avg_count = sum(counts) / len(counts) if counts else 0
-    
+
     # 3. Output Summary
     print("-" * 40)
     print(f"Redundancy Analysis Summary:")
@@ -650,12 +653,94 @@ def examine_redundancy_children(
     distribution = {}
     for count in layer_0_usage_counts.values():
         distribution[count] = distribution.get(count, 0) + 1
-    
+
     for count in range(max_count, -1, -1):
         if count in distribution:
             print(f"Nodes indexed {count} times: {distribution[count]}")
 
     print("-" * 40)
+
+
+def update_kmean_with_index(source_tree_path, target_tree_path):
+    """
+    Updates the target tree (e.g., K-Mean Tree) with index usage counts derived from the source tree (e.g., Merge Tree).
+    """
+    import pickle
+    from raptor.tree_structures import Tree
+
+    logging.info(f"Loading Source Merge Tree from {source_tree_path}...")
+    with open(source_tree_path, "rb") as f:
+        source_tree = pickle.load(f)
+
+    if not isinstance(source_tree, Tree):
+        logging.error("Source file is not a valid Tree object.")
+        return
+
+    # 1. Calculate Index Counts from Source Tree
+    logging.info("Calculating index counts from Source Tree...")
+    if 1 not in source_tree.layer_to_nodes:
+        logging.error(
+            "Source tree does not have Layer 1. Cannot calculate index counts."
+        )
+        return
+
+    layer_0_usage_counts = {}
+    layer_1_nodes = source_tree.layer_to_nodes[1]
+
+    # Initialize counts for all source layer 0 nodes to 0 (to ensure we have entries for all)
+    if 0 in source_tree.layer_to_nodes:
+        for node in source_tree.layer_to_nodes[0]:
+            layer_0_usage_counts[node.index] = 0
+
+    total_references = 0
+    for node in layer_1_nodes:
+        if node.children:
+            for child_index in node.children:
+                if child_index not in layer_0_usage_counts:
+                    layer_0_usage_counts[child_index] = 0
+                layer_0_usage_counts[child_index] += 1
+                total_references += 1
+
+    logging.info(
+        f"Source Tree Analysis: Found {total_references} references to Layer 0 nodes."
+    )
+
+    # 2. Load Target Tree
+    logging.info(f"Loading Target Tree from {target_tree_path}...")
+    with open(target_tree_path, "rb") as f:
+        target_tree = pickle.load(f)
+
+    if not isinstance(target_tree, Tree):
+        logging.error("Target file is not a valid Tree object.")
+        return
+
+    # 3. Update Target Tree Layer 0 Nodes
+    if 0 not in target_tree.layer_to_nodes:
+        logging.error("Target tree does not have Layer 0 nodes.")
+        return
+
+    updated_count = 0
+    target_layer_0 = target_tree.layer_to_nodes[0]
+
+    for node in target_layer_0:
+        if node.index in layer_0_usage_counts:
+            node.index_count = layer_0_usage_counts[node.index]
+            updated_count += 1
+        else:
+            # If node index not in source tree (mismatched trees?), default to 0
+            node.index_count = 0
+            logging.warning(
+                f"Node {node.index} in target tree not found in source tree layer 0 stats."
+            )
+
+    logging.info(f"Updated {updated_count} nodes in Target Tree with index counts.")
+
+    # 4. Save Updated Target Tree
+    logging.info(f"Saving updated Target Tree to {target_tree_path}...")
+    with open(target_tree_path, "wb") as f:
+        pickle.dump(target_tree, f)
+
+    logging.info("Update complete.")
 
 
 if __name__ == "__main__":
@@ -710,10 +795,34 @@ if __name__ == "__main__":
         action="store_true",
         help="Examine redundancy of children in the tree",
     )
+    parser.add_argument(
+        "--update_index_tree",
+        action="store_true",
+        help="Update target tree with index counts from source tree",
+    )
+    parser.add_argument(
+        "--source_tree",
+        type=str,
+        default=None,
+        help="Path to source tree (Merge Tree) for index counts",
+    )
+    parser.add_argument(
+        "--target_tree",
+        type=str,
+        default=None,
+        help="Path to target tree (K-Means Tree) to update",
+    )
 
     args = parser.parse_args()
 
-    if args.overlap_test:
+    if args.update_index_tree:
+        if not args.source_tree or not args.target_tree:
+            print(
+                "Error: --source_tree and --target_tree are required for --update_index_tree"
+            )
+        else:
+            update_kmean_with_index(args.source_tree, args.target_tree)
+    elif args.overlap_test:
         func = overlap_calculate
         kwargs = {"num_samples": args.num_samples}
     elif args.examine_tree_structure:
@@ -726,35 +835,36 @@ if __name__ == "__main__":
         func = run_experiment
         kwargs = {}
 
-    if args.local:
-        # Local mode
-        func(
-            dataset_name="squad",
-            local_test=True,
-            chunk_size=args.chunk_size,
-            n_clusters=args.n_clusters,
-            top_k_clusters=args.top_k_clusters,
-            top_k_chunks=args.top_k_chunks,
-            distance_metric=args.metric,
-            context_limit=args.limit,
-            save_tree_path=args.save_tree,
-            load_tree_path=args.load_tree,
-            **kwargs,
-        )
-    else:
-        # Server mode (default)
-        func(
-            dataset_name="squad",
-            local_test=False,
-            chunk_size=args.chunk_size,
-            n_clusters=(
-                args.n_clusters if args.n_clusters != 50 else 200
-            ),  # Default higher for server
-            top_k_clusters=args.top_k_clusters,
-            top_k_chunks=args.top_k_chunks,
-            distance_metric=args.metric,
-            context_limit=args.limit,
-            save_tree_path=args.save_tree,
-            load_tree_path=args.load_tree,
-            **kwargs,
-        )
+    if not args.update_index_tree:
+        if args.local:
+            # Local mode
+            func(
+                dataset_name="squad",
+                local_test=True,
+                chunk_size=args.chunk_size,
+                n_clusters=args.n_clusters,
+                top_k_clusters=args.top_k_clusters,
+                top_k_chunks=args.top_k_chunks,
+                distance_metric=args.metric,
+                context_limit=args.limit,
+                save_tree_path=args.save_tree,
+                load_tree_path=args.load_tree,
+                **kwargs,
+            )
+        else:
+            # Server mode (default)
+            func(
+                dataset_name="squad",
+                local_test=False,
+                chunk_size=args.chunk_size,
+                n_clusters=(
+                    args.n_clusters if args.n_clusters != 50 else 200
+                ),  # Default higher for server
+                top_k_clusters=args.top_k_clusters,
+                top_k_chunks=args.top_k_chunks,
+                distance_metric=args.metric,
+                context_limit=args.limit,
+                save_tree_path=args.save_tree,
+                load_tree_path=args.load_tree,
+                **kwargs,
+            )
