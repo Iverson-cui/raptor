@@ -1,3 +1,7 @@
+"""
+Base class for Retrieval Augmentation including config class and base class.
+"""
+
 import logging
 import pickle
 

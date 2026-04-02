@@ -1,3 +1,7 @@
+"""
+Some utility functions that will be used in the future.
+"""
+
 import logging
 import random
 from abc import ABC, abstractmethod

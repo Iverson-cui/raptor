@@ -1,3 +1,7 @@
+"""
+Original tree builder implementation in RAPTOR. Tree built using this builder will be based on summarization.
+"""
+
 import logging
 import pickle
 from concurrent.futures import ThreadPoolExecutor

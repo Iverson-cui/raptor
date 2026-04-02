@@ -1,3 +1,8 @@
+"""
+KMean tree builder doesn't do merge like Merge tree builder. For a given layer consisting of nodes, it directly clusters the nodes into k clusters (k is a hyperparameter) and creates parent nodes for each cluster.
+So the tree has layer 0 (children nodes) and layer 1 (clusters). The cluster centroids are used as the embeddings for the parent nodes, which allows for more accurate clustering in subsequent layers.
+"""
+
 import logging
 # import os
 import numpy as np

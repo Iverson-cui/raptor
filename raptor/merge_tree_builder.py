@@ -1,3 +1,8 @@
+"""
+Merge tree builder class first exclusively merges children chunks and results in a merged layer with the half number of chunks. Then it performs clustering on the merged layer to get the final clusters.
+So the tree has layer 0 (children nodes), layer 1 (merged nodes), and layer 2 (clusters).
+"""
+
 import logging
 import numpy as np
 from typing import Dict, List, Set, Tuple
@@ -34,8 +39,8 @@ class MergeTreeConfig(KMeansTreeConfig):
         Docstring for __init__
 
         :param self: Description
-        :param merge_top_k_clusters: number of top clusters to consider for merging
-        :param merge_top_k_chunks: Number of candidates to check, though we pick top 1 to merge
+        :param merge_top_k_clusters: number of top clusters to consider for merging. This parameter controls the search range for merging.
+        :param merge_top_k_chunks: Number of candidates to check. Index_count will be modified when we pick out a chunk. But currently in the code this parameter is unused because we always pick out the closest chunk.
         :param args: Description
         :param kwargs: Description
 
@@ -73,7 +78,7 @@ class MergeTreeBuilder(KMeansTreeBuilder):
 
         super().__init__(config)
         self.merge_top_k_clusters = config.merge_top_k_clusters
-        # merge_top_k_chunks is currently unused and only merge_top_k_chunks is used
+        # merge_top_k_chunks is currently unused and only merge_top_k_clusters is used
         self.merge_top_k_chunks = config.merge_top_k_chunks
 
         logging.info(
@@ -229,6 +234,7 @@ class MergeTreeBuilder(KMeansTreeBuilder):
         # # ...existing code...
 
         # --- Pre-calculate Neighbors and Index Counts (Conditional) ---
+        # Whether to calculate all index_counts from scratch or to use existed count depends on use_existing_index_counts flag.
         if not use_existing_index_counts:
             logging.info("Pre-calculating neighbors to determine index counts...")
 
@@ -306,6 +312,7 @@ class MergeTreeBuilder(KMeansTreeBuilder):
         else:
             logging.info("Using existing index_counts from nodes. Skipping pre-calculation.")
             # Ensure all nodes have index_count
+            # If a node doesn't have, set it to 0
             for node in node_list_layer0:
                 if not hasattr(node, "index_count"):
                     node.index_count = 0
@@ -400,7 +407,7 @@ class MergeTreeBuilder(KMeansTreeBuilder):
             if (len(new_level_nodes)) % 100 == 0:
                 logging.info(f"Created {len(new_level_nodes)} Layer 1 nodes so far...")
 
-        # Register Layer 1
+        # Register Layer 1 after all of nodes in layer 1 is formed
         layer_to_nodes[1] = list(new_level_nodes.values())
         all_tree_nodes.update(new_level_nodes)
 

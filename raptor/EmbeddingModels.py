@@ -1,3 +1,7 @@
+"""
+Embedding models for RAPTOR.
+"""
+
 import logging
 from abc import ABC, abstractmethod
 

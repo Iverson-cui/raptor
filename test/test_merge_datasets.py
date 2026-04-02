@@ -505,12 +505,13 @@ if __name__ == "__main__":
         "--model", type=str, default="qwen", choices=["qwen", "deepseek", "unifiedqa"]
     )
     # --local: local test or full dataset test
+    # local test means: only run on validation set instead of training+validation, embedding device on mps instead of cuda:0, QA model is UnifiedQA instead of what you choose, number of eval questions and contexts are limited, merge parameters are smaller, disables multithreading, and prints more logs.
     parser.add_argument("--local", action="store_true")
     # --freetest: run free test with multiple retriever configs
-    # chunk_size, n_clusters, merge_k_clusters, merge_k_chunks are specific
-    # top_k_clusters and top_k_chunks are given as lists for freetest
+    # chunk_size, n_clusters, merge_k_clusters, merge_k_chunks are fixed, which means tree building process is fixed.
+    # top_k_clusters and top_k_chunks are given as lists for freetest, which means we can have several different tree retrievers for the same tree builder.
     parser.add_argument("--freetest", action="store_true")
-    # --no_context: answer without context
+    # --no_context: answer without context. This flag is used to verify if the model can answer the question without any context.
     parser.add_argument("--no_context", action="store_true")
     # --node_info: save node information in a given file. Default to False
     parser.add_argument(
@@ -528,33 +529,33 @@ if __name__ == "__main__":
         help="Path to load a pre-built tree (pickle format)",
     )
 
-    # used in freetest. This is set to one set value for multiple retrievers.
-    parser.add_argument("--chunk_size", type=int, help="Chunk size for tree building")
-    # used in freetest
-    parser.add_argument(
-        "--n_clusters", type=int, help="Number of clusters for tree building"
-    )
-    # top-k-clusters. It's int because this is only used in non-freetest.
+    # top-k-clusters. It's a single int instead of an array because this is only used in non-freetest.
     parser.add_argument(
         "--top_k_clusters", type=int, help="Top k clusters for retrieval"
     )
-    # top-k-chunks. It's int because this is only used in non-freetest.
+    # top-k-chunks. It's a single int instead of an array because this is only used in non-freetest.
     parser.add_argument("--top_k", type=int, help="Top k chunks for retrieval")
-    # used in freetest.
+    # used in freetest building process. This is set to one fixed value for the tree building process.
+    parser.add_argument("--chunk_size", type=int, help="Chunk size for tree building")
+    # used in freetest building process.
+    parser.add_argument(
+        "--n_clusters", type=int, help="Number of clusters for tree building"
+    )
+    # used in freetest building process.
     parser.add_argument(
         "--merge_k_clusters", type=int, help="Merge tree: top k clusters"
     )
-    # used in freetest.
+    # used in freetest building process.
     parser.add_argument("--merge_k_chunks", type=int, help="Merge tree: top k chunks")
 
-    # used in freetest so it's a list
+    # used in freetest retrieval process so it's a list
     parser.add_argument(
         "--k_clusters_list",
         type=int,
         nargs="+",
         help="List of top_k_clusters for freetest",
     )
-    # used in freetest so it's a list
+    # used in freetest retrieval process so it's a list
     parser.add_argument(
         "--k_chunks_list", type=int, nargs="+", help="List of top_k_chunks for freetest"
     )
