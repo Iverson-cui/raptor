@@ -349,7 +349,7 @@ class QwenQAModel(BaseQAModel):
 
     def __init__(
         self,
-        model_path="/opt/pretrained_models/Qwen2-7B-Instruct",
+        model_path="/opt/models/Qwen2-7B-Instruct",
         device_map="auto",
         max_memory=None,
     ):
