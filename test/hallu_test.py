@@ -56,7 +56,7 @@ class LocalServerQAModel(BaseQAModel):
 
         # Load model with A6000 optimized settings (bfloat16)
         # Using float16/float32 fallback for non-CUDA devices
-        dtype = torch.float32 if torch.cuda.is_available() else torch.float32
+        dtype = torch.bfloat16 if torch.cuda.is_available() else torch.float32
 
         try:
             self.model = AutoModelForCausalLM.from_pretrained(
@@ -104,6 +104,15 @@ class LocalServerQAModel(BaseQAModel):
             text = f"Context: {context}\n\nQuestion: {question}\n\nAnswer:"
 
         inputs = self.tokenizer([text], return_tensors="pt").to(self.device)
+
+        # Check for NaN or Inf values in input tensors
+        if (
+            torch.isnan(inputs["input_ids"]).any()
+            or torch.isinf(inputs["input_ids"]).any()
+        ):
+            print("Warning: Input tensor contains NaN or Inf values.")
+            # Optionally, handle the error or clean inputs here before proceeding
+            return "Error: Invalid input values detected."
 
         with torch.no_grad():
             generated_ids = self.model.generate(
