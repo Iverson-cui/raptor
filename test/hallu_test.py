@@ -23,10 +23,10 @@ class LocalServerQAModel(BaseQAModel):
     ):
         """
         Args:
-            model_path (str): Full path to the model or folder name in /opt/pretrained_models/
+            model_path (str): Full path to the model or folder name in /opt/models/
         """
         # Resolve path similarly to QwenQAModel logic
-        base_dir = "/opt/pretrained_models"
+        base_dir = "/opt/models"
         if not os.path.exists(model_path):
             augmented_path = os.path.join(base_dir, model_path)
             if os.path.exists(augmented_path):
@@ -165,7 +165,7 @@ class LocalServerQAModel(BaseQAModel):
 
 if __name__ == "__main__":
     # Default model path
-    MODEL_NAME = "/opt/pretrained_models/Qwen2-7B-Instruct"
+    MODEL_NAME = "/opt/models/Qwen2-7B-Instruct"
 
     try:
         print(f"--- Loading Model: {MODEL_NAME} ---")
@@ -179,7 +179,7 @@ if __name__ == "__main__":
             if question.lower() in ["exit", "quit"]:
                 print("Exiting...")
                 break
-            
+
             if not question:
                 continue
 
