@@ -470,3 +470,263 @@ class QwenQAModel(BaseQAModel):
             0
         ]
         return response.strip()
+
+
+class QwenQASmallerModel1(BaseQAModel):
+    """
+    Implementation for Qwen2 or Qwen3 Instruct models.
+    """
+
+    def __init__(
+        self,
+        model_path="/opt/models/Qwen2.5-0.5B-Instruct",
+        device_map="auto",
+        max_memory=None,
+    ):
+        """
+        Args:
+            model_path (str): Path to the model folder on your server.
+                              e.g. "/path/to/Qwen2-7B-Instruct" or "Qwen3-14B"
+        """
+        # 1. Get the base path from environment, or use a default
+        base_dir = os.environ.get("SERVER_MODEL_PATH")
+
+        if base_dir:
+            # Join the base path with the simple folder name
+            augmented_model_path = os.path.join(base_dir, model_path)
+        else:
+            # Fallback: If variable isn't set, try using the name directly
+            # (assuming full path was passed or it's a hub ID)
+            augmented_model_path = model_path
+        print(f"Loading Qwen from: {augmented_model_path}")
+
+        # 2. Check if it exists (Good for debugging server issues)
+        if not os.path.exists(augmented_model_path):
+            # Try loading as a Hub ID if local path fails?
+            # Or just raise error to prevent accidental downloads.
+            print(f"Warning: Local path {augmented_model_path} does not exist.")
+        print(f"Loading Qwen model from {augmented_model_path}...")
+        if torch.cuda.is_available():
+            self.device = "cuda"
+        elif torch.backends.mps.is_available():
+            self.device = "mps"
+        else:
+            self.device = "cpu"
+
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            augmented_model_path, trust_remote_code=True
+        )
+
+        # Qwen models run excellently in bfloat16
+        self.model = AutoModelForCausalLM.from_pretrained(
+            augmented_model_path,
+            device_map=device_map,
+            max_memory=max_memory,
+            trust_remote_code=True,
+            torch_dtype=torch.bfloat16,
+        )
+        self.model.eval()
+
+    def answer_question(self, context, question, max_new_tokens=512):
+        # Standard ChatML format for Qwen
+        messages = [
+            {
+                "role": "system",
+                "content": "You are a helpful assistant. Answer the question strictly using only the provided context. If the answer cannot be found in the context, concisely state that the information is not available.",
+            },
+            {"role": "user", "content": f"Context: {context}\n\nQuestion: {question}"},
+        ]
+
+        text = self.tokenizer.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True
+        )
+
+        model_inputs = self.tokenizer([text], return_tensors="pt").to(self.device)
+
+        with torch.no_grad():
+            generated_ids = self.model.generate(
+                **model_inputs,
+                max_new_tokens=max_new_tokens,
+                temperature=0.1,
+                do_sample=True,
+            )
+
+        # Slice output to remove input tokens
+        generated_ids = [
+            output_ids[len(input_ids) :]
+            for input_ids, output_ids in zip(model_inputs.input_ids, generated_ids)
+        ]
+
+        response = self.tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[
+            0
+        ]
+        return response.strip()
+
+    def answer_question_without_contexts(self, context, question, max_new_tokens=512):
+        """
+        comparative function without contexts
+
+        """
+        # Standard ChatML format for Qwen
+        messages = [
+            {
+                "role": "system",
+                "content": "You are a helpful assistant. Answer the question strictly using only the provided context. If the answer cannot be found in the context, concisely state that the information is not available.",
+            },
+            {"role": "user", "content": f"Context: {None}\n\nQuestion: {question}"},
+        ]
+
+        text = self.tokenizer.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True
+        )
+
+        model_inputs = self.tokenizer([text], return_tensors="pt").to(self.device)
+
+        with torch.no_grad():
+            generated_ids = self.model.generate(
+                **model_inputs,
+                max_new_tokens=max_new_tokens,
+                temperature=0.1,
+                do_sample=True,
+            )
+
+        # Slice output to remove input tokens
+        generated_ids = [
+            output_ids[len(input_ids) :]
+            for input_ids, output_ids in zip(model_inputs.input_ids, generated_ids)
+        ]
+
+        response = self.tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[
+            0
+        ]
+        return response.strip()
+
+
+class QwenQASmallerModel2(BaseQAModel):
+    """
+    Implementation for Qwen2 or Qwen3 Instruct models.
+    """
+
+    def __init__(
+        self,
+        model_path="/opt/models/Qwen2-1.5B-Instruct",
+        device_map="auto",
+        max_memory=None,
+    ):
+        """
+        Args:
+            model_path (str): Path to the model folder on your server.
+                              e.g. "/path/to/Qwen2-1.5B-Instruct" or "Qwen3-14B"
+        """
+        # 1. Get the base path from environment, or use a default
+        base_dir = os.environ.get("SERVER_MODEL_PATH")
+
+        if base_dir:
+            # Join the base path with the simple folder name
+            augmented_model_path = os.path.join(base_dir, model_path)
+        else:
+            # Fallback: If variable isn't set, try using the name directly
+            # (assuming full path was passed or it's a hub ID)
+            augmented_model_path = model_path
+        print(f"Loading Qwen from: {augmented_model_path}")
+
+        # 2. Check if it exists (Good for debugging server issues)
+        if not os.path.exists(augmented_model_path):
+            # Try loading as a Hub ID if local path fails?
+            # Or just raise error to prevent accidental downloads.
+            print(f"Warning: Local path {augmented_model_path} does not exist.")
+        print(f"Loading Qwen model from {augmented_model_path}...")
+        if torch.cuda.is_available():
+            self.device = "cuda"
+        elif torch.backends.mps.is_available():
+            self.device = "mps"
+        else:
+            self.device = "cpu"
+
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            augmented_model_path, trust_remote_code=True
+        )
+
+        # Qwen models run excellently in bfloat16
+        self.model = AutoModelForCausalLM.from_pretrained(
+            augmented_model_path,
+            device_map=device_map,
+            max_memory=max_memory,
+            trust_remote_code=True,
+            torch_dtype=torch.bfloat16,
+        )
+        self.model.eval()
+
+    def answer_question(self, context, question, max_new_tokens=512):
+        # Standard ChatML format for Qwen
+        messages = [
+            {
+                "role": "system",
+                "content": "You are a helpful assistant. Answer the question strictly using only the provided context. If the answer cannot be found in the context, concisely state that the information is not available.",
+            },
+            {"role": "user", "content": f"Context: {context}\n\nQuestion: {question}"},
+        ]
+
+        text = self.tokenizer.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True
+        )
+
+        model_inputs = self.tokenizer([text], return_tensors="pt").to(self.device)
+
+        with torch.no_grad():
+            generated_ids = self.model.generate(
+                **model_inputs,
+                max_new_tokens=max_new_tokens,
+                temperature=0.1,
+                do_sample=True,
+            )
+
+        # Slice output to remove input tokens
+        generated_ids = [
+            output_ids[len(input_ids) :]
+            for input_ids, output_ids in zip(model_inputs.input_ids, generated_ids)
+        ]
+
+        response = self.tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[
+            0
+        ]
+        return response.strip()
+
+    def answer_question_without_contexts(self, context, question, max_new_tokens=512):
+        """
+        comparative function without contexts
+
+        """
+        # Standard ChatML format for Qwen
+        messages = [
+            {
+                "role": "system",
+                "content": "You are a helpful assistant. Answer the question strictly using only the provided context. If the answer cannot be found in the context, concisely state that the information is not available.",
+            },
+            {"role": "user", "content": f"Context: {None}\n\nQuestion: {question}"},
+        ]
+
+        text = self.tokenizer.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True
+        )
+
+        model_inputs = self.tokenizer([text], return_tensors="pt").to(self.device)
+
+        with torch.no_grad():
+            generated_ids = self.model.generate(
+                **model_inputs,
+                max_new_tokens=max_new_tokens,
+                temperature=0.1,
+                do_sample=True,
+            )
+
+        # Slice output to remove input tokens
+        generated_ids = [
+            output_ids[len(input_ids) :]
+            for input_ids, output_ids in zip(model_inputs.input_ids, generated_ids)
+        ]
+
+        response = self.tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[
+            0
+        ]
+        return response.strip()

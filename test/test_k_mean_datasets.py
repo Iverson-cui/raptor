@@ -14,7 +14,13 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from raptor import RetrievalAugmentation, RetrievalAugmentationConfig
 from raptor.kmeans_retriever import KMeansRetrieverConfig
-from raptor.QAModels import UnifiedQAModel, QwenQAModel, DeepSeekQAModel
+from raptor.QAModels import (
+    UnifiedQAModel,
+    QwenQAModel,
+    DeepSeekQAModel,
+    QwenQASmallerModel1,
+    QwenQASmallerModel2,
+)
 from raptor.EmbeddingModels import SBertEmbeddingModel, BGEM3Model, MpnetBaseCosModel
 from raptor.SummarizationModels import (
     DeepSeekSummarizationModel,
@@ -338,6 +344,10 @@ def evaluate_k_means_on_dataset(
 
         if model_name.lower() == "qwen":
             qa_model = QwenQAModel(max_memory=qa_memory_map, device_map="auto")
+        elif model_name.lower() == "qwen0.5b":
+            qa_model = QwenQASmallerModel1(max_memory=qa_memory_map, device_map="auto")
+        elif model_name.lower() == "qwen1.5b":
+            qa_model = QwenQASmallerModel2(max_memory=qa_memory_map, device_map="auto")
         elif model_name.lower() == "deepseek":
             qa_model = DeepSeekQAModel(max_memory=qa_memory_map, device_map="auto")
         else:
