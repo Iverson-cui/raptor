@@ -124,6 +124,11 @@ class LocalServerQAModel(BaseQAModel):
                 eos_token_id=self.tokenizer.eos_token_id,
             )
 
+        # Check for NaN or Inf values in the generated output
+        if torch.isnan(generated_ids).any() or torch.isinf(generated_ids).any():
+            print("Warning: Generated tensor contains NaN or Inf values.")
+            return "Error: Invalid model output detected."
+
         # Remove input tokens from output
         generated_ids = [
             output_ids[len(input_ids) :]
