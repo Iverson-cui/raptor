@@ -184,6 +184,12 @@ if __name__ == "__main__":
     # Default model path
     MODEL_NAME = "/opt/models/Qwen2-7B-Instruct"
 
+    # Print out the memory status on the device
+    print(f"Allocated Memory: {torch.cuda.memory_allocated()} bytes")
+    print(f"Reserved Memory: {torch.cuda.memory_reserved()} bytes")
+    print(f"Max Memory Allocated: {torch.cuda.max_memory_allocated()} bytes")
+    print(f"Device Memory Stats: {torch.cuda.memory_summary()}")
+
     try:
         print(f"--- Loading Model: {MODEL_NAME} ---")
         qa_engine = LocalServerQAModel(model_path=MODEL_NAME)
