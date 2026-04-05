@@ -56,7 +56,7 @@ class LocalServerQAModel(BaseQAModel):
 
         # Load model with A6000 optimized settings (bfloat16)
         # Using float16/float32 fallback for non-CUDA devices
-        dtype = torch.bfloat16 if torch.cuda.is_available() else torch.float32
+        dtype = torch.float32 if torch.cuda.is_available() else torch.float32
 
         try:
             self.model = AutoModelForCausalLM.from_pretrained(
