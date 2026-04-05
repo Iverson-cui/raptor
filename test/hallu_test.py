@@ -1,7 +1,10 @@
 """
 This file is used to try to output a hallucination example of LLM without RAG.
 """
+import os
+import sys
 
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 import os
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
