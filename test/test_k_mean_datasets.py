@@ -208,9 +208,10 @@ def evaluate_k_means_on_dataset(
     # Determine Tree Building Params from the first config if provided
     # since when entering free test mode, the tb_max_tokens and n_clusters are the same for all configs
     if multi_retriever_configs:
+        # extract first tree config
         first_cfg = multi_retriever_configs[0]
         logging.info("Multi-retriever mode: Using first config for Tree Building.")
-        # Override defaults with the first config's values in free test mode
+        # these 4 parameters are not given directly by the function input, but are expected to be in the multi_retriever_configs
         tb_max_tokens = first_cfg.get("tb_max_tokens", tb_max_tokens)
         n_clusters = first_cfg.get("n_clusters", n_clusters)
         tr_top_k_clusters = first_cfg.get("tr_top_k_clusters", tr_top_k_clusters)
@@ -396,6 +397,7 @@ def evaluate_k_means_on_dataset(
         f"Configuring RAPTOR with: n_clusters={n_clusters}, tb_max_tokens={tb_max_tokens}, tr_top_k_clusters={tr_top_k_clusters}, tr_top_k={tr_top_k}"
     )
 
+    # In freetest mode, tb_n_clusters, tb_max_tokens, tr_top_k_clusters and tr_top_k are expected from the first config and are passed in to RAC
     RAC = RetrievalAugmentationConfig(
         tree_builder_type="kmeans",
         tree_retriever_type="kmeans",
@@ -414,6 +416,7 @@ def evaluate_k_means_on_dataset(
     else:
         RA = RetrievalAugmentation(config=RAC)
 
+    # if tree is not given, build the tree from scratch
     if not load_tree_path:
         # Concatenate all contexts into one large corpus
         logging.info("Joining contexts into full corpus...")
@@ -425,6 +428,8 @@ def evaluate_k_means_on_dataset(
         RA.add_documents(full_corpus, use_multithreading=not local_test)
         elapsed = time.time() - start_time
         logging.info(f"Tree built successfully in {elapsed:.2f} seconds.")
+    # if tree is given, skip tree building
+    # so if the tree is given, two building parameters (tb_max_tokens and n_clusters) will not be used
     else:
         logging.info("Skipping tree building (tree loaded).")
 
@@ -561,7 +566,10 @@ if __name__ == "__main__":
         choices=["squad", "hotpot_qa", "ms_marco", "squad_v2", "natural_questions", "trivia_qa"],
     )
     parser.add_argument(
-        "--model", type=str, default="qwen", choices=["qwen", "deepseek", "unifiedqa"]
+        "--model",
+        type=str,
+        default="qwen",
+        choices=["qwen", "deepseek", "unifiedqa", "qwen0.5b", "qwen1.5b"],
     )
     parser.add_argument("--local", action="store_true")
     parser.add_argument("--fulltest", action="store_true")
@@ -720,6 +728,7 @@ if __name__ == "__main__":
         )  # top_k retrieved chunks
 
         multi_retriever_configs = []
+        # for all multi retriever configs, chunk size and n_clusters are the same, only k_clusters and k_chunks vary
         for kc, k in zip(tr_top_k_clusters_list, tr_top_k_chunks_list):
             multi_retriever_configs.append(
                 {
@@ -730,6 +739,8 @@ if __name__ == "__main__":
                 }
             )
 
+        # Compared with the function declaration, two building parameters and two retrieval parameters are missing
+        # These 4 parameters are set by multi_retriever_configs
         all_results_dict = evaluate_k_means_on_dataset(
             dataset_name=args.dataset,
             model_name=args.model,
