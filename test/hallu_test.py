@@ -3,7 +3,7 @@ This file is used to try to output a hallucination example of LLM without RAG.
 """
 import os
 import sys
-
+os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 import os
 import torch
