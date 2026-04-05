@@ -347,7 +347,7 @@ def evaluate_k_means_on_dataset(
             qa_model = QwenQAModel(max_memory=qa_memory_map, device_map="auto")
         elif model_name.lower() == "qwen0.5b":
             qa_model = QwenQASmallerModel1(max_memory=qa_memory_map, device_map="auto")
-        elif model_name.lower() == "qwen1.5b":
+        elif model_name.lower() == "qwen4b":
             qa_model = QwenQASmallerModel2(max_memory=qa_memory_map, device_map="auto")
         elif model_name.lower() == "deepseek":
             qa_model = DeepSeekQAModel(max_memory=qa_memory_map, device_map="auto")
@@ -569,7 +569,7 @@ if __name__ == "__main__":
         "--model",
         type=str,
         default="qwen",
-        choices=["qwen", "deepseek", "unifiedqa", "qwen0.5b", "qwen1.5b"],
+        choices=["qwen", "deepseek", "unifiedqa", "qwen0.5b", "qwen4b"],
     )
     parser.add_argument("--local", action="store_true")
     parser.add_argument("--fulltest", action="store_true")

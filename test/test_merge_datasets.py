@@ -312,7 +312,7 @@ def evaluate_merge_on_dataset(
             qa_model = QwenQAModel(max_memory=qa_memory_map, device_map="auto")
         elif model_name.lower() == "qwen0.5b":
             qa_model = QwenQASmallerModel1(max_memory=qa_memory_map, device_map="auto")
-        elif model_name.lower() == "qwen1.5b":
+        elif model_name.lower() == "qwen4b":
             qa_model = QwenQASmallerModel2(max_memory=qa_memory_map, device_map="auto")
         elif model_name.lower() == "deepseek":
             qa_model = DeepSeekQAModel(max_memory=qa_memory_map, device_map="auto")
@@ -512,7 +512,10 @@ if __name__ == "__main__":
     )
     # --model let us to choose a specific QA model
     parser.add_argument(
-        "--model", type=str, default="qwen", choices=["qwen", "deepseek", "unifiedqa"]
+        "--model",
+        type=str,
+        default="qwen",
+        choices=["qwen", "deepseek", "unifiedqa", "qwen0.5b", "qwen4b"],
     )
     # --local: local test or full dataset test
     # local test means: only run on validation set instead of training+validation, embedding device on mps instead of cuda:0, QA model is UnifiedQA instead of what you choose, number of eval questions and contexts are limited, merge parameters are smaller, disables multithreading, and prints more logs.

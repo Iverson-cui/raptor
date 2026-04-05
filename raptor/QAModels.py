@@ -609,7 +609,7 @@ class QwenQASmallerModel2(BaseQAModel):
 
     def __init__(
         self,
-        model_path="/opt/models/Qwen2-1.5B-Instruct",
+        model_path="/opt/models/Qwen3-4B-Instruct-2507",
         device_map="auto",
         max_memory=None,
     ):
