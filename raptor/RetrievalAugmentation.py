@@ -196,7 +196,7 @@ class RetrievalAugmentationConfig:
             }
             if tree_retriever_type == "kmeans":
                 config_kwargs["top_k_clusters"] = tr_top_k_clusters
-            
+
             if tree_retriever_type == "merge":
                 config_kwargs["top_k_clusters"] = tr_top_k_clusters
 
@@ -331,7 +331,9 @@ class RetrievalAugmentation:
         # The build_from_text method orchestrates the entire tree construction process:
         # 1. Splitting text into chunks (Leaf Nodes)
         # 2. Recursively clustering and summarizing (Higher-level Nodes)
-        self.tree = self.tree_builder.build_from_text(text=docs, use_multithreading=use_multithreading)
+        self.tree = self.tree_builder.build_from_text(
+            text=docs, use_multithreading=use_multithreading
+        )
         # builder and retriever is connected by this self.tree
         retriever_class = supported_retrievers[self.config.tree_retriever_type][0]
         self.retriever = retriever_class(self.config.tree_retriever_config, self.tree)
@@ -389,7 +391,7 @@ class RetrievalAugmentation:
         top_k: int = 10,
         start_layer: int = None,
         num_layers: int = None,
-        max_tokens: int = 5000,
+        max_tokens: int = 10000,
         collapse_tree: bool = False,
         return_layer_information: bool = False,
     ):
