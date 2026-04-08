@@ -438,12 +438,19 @@ class QwenQAModel(BaseQAModel):
 
         """
         # Standard ChatML format for Qwen
+        # messages = [
+        #     {
+        #         "role": "system",
+        #         "content": "You are a helpful assistant. Answer the question strictly using only the provided context. If the answer cannot be found in the context, concisely state that the information is not available.",
+        #     },
+        #     {"role": "user", "content": f"Context: {None}\n\nQuestion: {question}"},
+        # ]
         messages = [
             {
                 "role": "system",
-                "content": "You are a helpful assistant. Answer the question strictly using only the provided context. If the answer cannot be found in the context, concisely state that the information is not available.",
+                "content": "You are a helpful assistant. Answer the question based on your knowledge.",
             },
-            {"role": "user", "content": f"Context: {None}\n\nQuestion: {question}"},
+            {"role": "user", "content": f"Question: {question}"},
         ]
 
         text = self.tokenizer.apply_chat_template(
@@ -568,12 +575,19 @@ class QwenQASmallerModel1(BaseQAModel):
 
         """
         # Standard ChatML format for Qwen
+        # messages = [
+        #     {
+        #         "role": "system",
+        #         "content": "You are a helpful assistant. Answer the question strictly using only the provided context. If the answer cannot be found in the context, concisely state that the information is not available.",
+        #     },
+        #     {"role": "user", "content": f"Context: {None}\n\nQuestion: {question}"},
+        # ]
         messages = [
             {
                 "role": "system",
-                "content": "You are a helpful assistant. Answer the question strictly using only the provided context. If the answer cannot be found in the context, concisely state that the information is not available.",
+                "content": "You are a helpful assistant. Answer the question based on your knowledge.",
             },
-            {"role": "user", "content": f"Context: {None}\n\nQuestion: {question}"},
+            {"role": "user", "content": f"Question: {question}"},
         ]
 
         text = self.tokenizer.apply_chat_template(
@@ -698,12 +712,19 @@ class QwenQASmallerModel2(BaseQAModel):
 
         """
         # Standard ChatML format for Qwen
+        # messages = [
+        #     {
+        #         "role": "system",
+        #         "content": "You are a helpful assistant. Answer the question strictly using only the provided context. If the answer cannot be found in the context, concisely state that the information is not available.",
+        #     },
+        #     {"role": "user", "content": f"Context: {None}\n\nQuestion: {question}"},
+        # ]
         messages = [
             {
                 "role": "system",
-                "content": "You are a helpful assistant. Answer the question strictly using only the provided context. If the answer cannot be found in the context, concisely state that the information is not available.",
+                "content": "You are a helpful assistant. Answer the question based on your knowledge.",
             },
-            {"role": "user", "content": f"Context: {None}\n\nQuestion: {question}"},
+            {"role": "user", "content": f"Question: {question}"},
         ]
 
         text = self.tokenizer.apply_chat_template(
